@@ -1,16 +1,32 @@
-@Data
-public class CreateIncidentRequest {
-    private String titre;
-    private String description;
+@Override
+public CreateIncidentResponse mapToDto(IncidentEntity incident) {
+    CreateIncidentResponse createIncidentResponse = new CreateIncidentResponse();
+    
+    createIncidentResponse.setDescription(incident.getDescription());
+    createIncidentResponse.setTitre(incident.getTitre());
+    createIncidentResponse.setServiceId(incident.getService().getId());
+    createIncidentResponse.setClientId(incident.getClient().getId());
+    createIncidentResponse.setCoeDevId(incident.getCoeDev().getId());
+    createIncidentResponse.setFichierJoint(incident.getFichierJoint());
 
-    private StatutIncident statut; // ou initialisé automatiquement à "soumis" côté service
+    // Ajout des nouveaux champs
+    if (incident.getPriorite() != null) {
+        createIncidentResponse.setPriorite(incident.getPriorite());
+    } else {
+        System.out.println("Priorité non définie pour cet incident");
+    }
 
-    private PrioriteIncident priorite;
-    private Date dateAttribution;
-    private List<String> fichierJoint;
-    private String gravite;
+    if (incident.getGravite() != null) {
+        createIncidentResponse.setGravite(incident.getGravite());
+    } else {
+        System.out.println("Gravité non définie pour cet incident");
+    }
 
-    private Integer categorieId; // id de la catégorie
-    private Integer clientId;    // id de l'utilisateur qui déclare
-    private Integer coeDevId;    // id du développeur qui va résoudre
+    if (incident.getStatut() != null) {
+        createIncidentResponse.setStatut(incident.getStatut());
+    } else {
+        System.out.println("Statut non défini pour cet incident");
+    }
+
+    return createIncidentResponse;
 }
