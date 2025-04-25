@@ -1,7 +1,71 @@
-public enum StatutIncident {
-    soumis,
-    en_cours_de_traitement,
-    pris_en_charge,
-    en_test,
-    résolu
+@Entity
+public class User {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+
+    private String nom;
+    private String prenom;
+
+    @ManyToOne
+    private Role role;
+
+    @OneToMany(mappedBy = "client")
+    private List<Incident> incidentsDeclares;
+
+    @OneToMany(mappedBy = "coeDev")
+    private List<Incident> incidentsResolus;
+}
+
+
+
+
+@Entity
+public class Role {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+
+    private String nom;
+
+    @OneToMany(mappedBy = "role")
+    private List<User> users;
+}
+
+
+
+@Entity
+public class Categorie {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+
+    private String nom;
+    private String description;
+
+    @OneToMany(mappedBy = "categorie")
+    private List<Incident> incidents;
+}
+
+
+@Entity
+public class Documentation {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+
+    private String contenu;
+    private Date dateAjout;
+
+    @ManyToOne
+    private Incident incident;
+}
+
+
+
+@Entity
+public class RapportResolution {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+
+    private Date dateGeneration;
+
+    @ManyToOne
+    private Incident incident;
 }
