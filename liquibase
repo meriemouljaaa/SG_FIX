@@ -1,71 +1,16 @@
-@Entity
-public class User {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
-
-    private String nom;
-    private String prenom;
-
-    @ManyToOne
-    private Role role;
-
-    @OneToMany(mappedBy = "client")
-    private List<Incident> incidentsDeclares;
-
-    @OneToMany(mappedBy = "coeDev")
-    private List<Incident> incidentsResolus;
-}
-
-
-
-
-@Entity
-public class Role {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
-
-    private String nom;
-
-    @OneToMany(mappedBy = "role")
-    private List<User> users;
-}
-
-
-
-@Entity
-public class Categorie {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
-
-    private String nom;
+@Data
+public class CreateIncidentRequest {
+    private String titre;
     private String description;
 
-    @OneToMany(mappedBy = "categorie")
-    private List<Incident> incidents;
-}
+    private StatutIncident statut; // ou initialisé automatiquement à "soumis" côté service
 
+    private PrioriteIncident priorite;
+    private Date dateAttribution;
+    private List<String> fichierJoint;
+    private String gravite;
 
-@Entity
-public class Documentation {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
-
-    private String contenu;
-    private Date dateAjout;
-
-    @ManyToOne
-    private Incident incident;
-}
-
-
-
-@Entity
-public class RapportResolution {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
-
-    private Date dateGeneration;
-
-    @ManyToOne
-    private Incident incident;
+    private Integer categorieId; // id de la catégorie
+    private Integer clientId;    // id de l'utilisateur qui déclare
+    private Integer coeDevId;    // id du développeur qui va résoudre
 }
