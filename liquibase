@@ -1,49 +1,55 @@
-<changeSet id="3" author="oulja">
-    <createTable tableName="user_entity">
-        <column name="id" type="BIGINT" autoIncrement="true">
-            <constraints primaryKey="true" nullable="false"/>
-        </column>
-        <column name="username" type="VARCHAR(255)">
-            <constraints nullable="false" unique="true"/>
-        </column>
-        <column name="email" type="VARCHAR(255)"/>
-        <column name="password" type="VARCHAR(255)"/>
-    </createTable>
-</changeSet>
+package ton.package.service;
 
-<changeSet id="4" author="oulja">
-    <createTable tableName="documentation_entity">
-        <column name="id" type="BIGINT" autoIncrement="true">
-            <constraints primaryKey="true" nullable="false"/>
-        </column>
-        <column name="titre" type="VARCHAR(255)"/>
-        <column name="contenu" type="CLOB"/>
-        <column name="incident_id" type="BIGINT"/>
-    </createTable>
+import ton.package.entity.IncidentEntity;
+import ton.package.repository.IncidentRepository;
+import ton.package.model.CreateIncidentRequest;
 
-    <addForeignKeyConstraint 
-        baseTableName="documentation_entity"
-        baseColumnNames="incident_id"
-        constraintName="fk_documentation_incident"
-        referencedTableName="incident_entity"
-        referencedColumnNames="id"/>
-</changeSet>
+import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.List;
+import java.util.Optional;
 
-<changeSet id="5" author="oulja">
-    <createTable tableName="rapport_resolution_entity">
-        <column name="id" type="BIGINT" autoIncrement="true">
-            <constraints primaryKey="true" nullable="false"/>
-        </column>
-        <column name="rapport" type="CLOB"/>
-        <column name="date_resolution" type="TIMESTAMP"/>
-        <column name="incident_id" type="BIGINT"/>
-    </createTable>
+@Service
+public class IncidentService {
 
-    <addForeignKeyConstraint 
-        baseTableName="rapport_resolution_entity"
-        baseColumnNames="incident_id"
-        constraintName="fk_rapport_incident"
-        referencedTableName="incident_entity"
-        referencedColumnNames="id"/>
-</changeSet>
+    private final IncidentRepository incidentRepository;
+
+    @Autowired
+    public IncidentService(IncidentRepository incidentRepository) {
+        this.incidentRepository = incidentRepository;
+    }
+
+    public List<IncidentEntity> getAllIncidents() {
+        return incidentRepository.findAll();
+    }
+
+    public Optional<IncidentEntity> getIncidentById(Integer id) {
+        return incidentRepository.findById(id);
+    }
+
+    public IncidentEntity createIncident(CreateIncidentRequest request) {
+        IncidentEntity incident = new IncidentEntity();
+        incident.setTitre(request.getTitre());
+        incident.setDescription(request.getDescription());
+        incident.setStatut(request.getStatutIncident() != null ? StatutIncident.valueOf(request.getStatutIncident()) : null);
+        incident.setGravite(request.getGravite() != null ? GraviteIncident.valueOf(request.getGravite()) : null);
+        incident.setPriorite(request.getPriorite() != null ? PrioriteIncident.valueOf(request.getPriorite()) : null);
+        incident.setDateAttribution(request.getDateAttribution());
+        incident.setDateResolution(request.getDateResolution());
+        incident.setFichierJoint(request.getFichierJoint());
+        
+        // Ici pour le service associé, il faudra aller chercher le service à partir de son ID
+        if (request.getServiceId() != null) {
+            ServiceEntity service = new ServiceEntity();
+            service.setId(request.getServiceId()); // Supposant qu'il y a un setId
+            incident.setService(service);
+        }
+
+        return incidentRepository.save(incident);
+    }
+
+    public void deleteIncident(Integer id) {
+        incidentRepository.deleteById(id);
+    }
+}
