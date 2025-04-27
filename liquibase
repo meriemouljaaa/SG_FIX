@@ -1,28 +1,8 @@
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.stream.Collectors;
-
-@Service
-public class IncidentService {
-
-    @Autowired
-    private IncidentRepository incidentRepository;
-
-    public List<IncidentResponse> handle(IncidentRequest request, RequestContext context) {
-        // Utilisation de incidentRepository pour récupérer les incidents, selon les critères
-        List<IncidentEntity> incidents = incidentRepository.findAll();
-
-        // Transformation des IncidentEntity en IncidentResponse
-        return incidents.stream()
-                .map(incident -> new IncidentResponse(
-                        incident.getId(),
-                        incident.getTitre(),
-                        incident.getDescription(),
-                        incident.getStatut().toString(),   // Convertir Enum en String si nécessaire
-                        incident.getPriorite().toString(),
-                        incident.getGravite().toString()))
-                .collect(Collectors.toList());
+    public IncidentResponse(int id, String titre, String description, String statut, String priorite, String gravite) {
+        this.id = id;
+        this.titre = titre;
+        this.description = description;
+        this.statut = statut;
+        this.priorite = priorite;
+        this.gravite = gravite;
     }
-}
