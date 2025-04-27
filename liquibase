@@ -1,43 +1,69 @@
-spring:
-  application:
-    name: unibank-service-sgfix
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
 
-  profiles:
-    group:
-      local:
-        - embedded-rabbitmq
-        - database-migration
-      test:
-        - unibank-test
-    include:
-      - unibank-core
-      - unibank-persistence-simple
+public interface IncidentRepository extends JpaRepository<IncidentEntity, Integer> {
+    
+    List<IncidentEntity> findByTitreContainingIgnoreCaseOrDescriptionContainingIgnoreCase(String titre, String description);
+}
+import java.util.Optional;
+import java.util.List;
 
-  cloud:
-    vault:
-      enabled: false
-      kv:
-        enabled: false
+@Service
+public class IncidentService {
+    @Autowired
+    private IncidentRepository incidentRepository;
 
-  jpa:
-    hibernate:
-      ddl-auto: none   # Hibernate ne crée PAS les tables, c'est Liquibase qui le fera
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
+    // Détail d'un incident par id
+    public IncidentEntity getIncidentById(int id) {
+        return incidentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Incident non trouvé avec id: " + id));
+    }
 
-  liquibase:
-    enabled: true
-    change-log: classpath:/db/changelog/db.changelog-master.xml # <-- chemin vers ton fichier liquibase XML
+    // Recherche par mot clé (titre ou description)
+    public List<IncidentEntity> searchIncidentsByKeyword(String keyword) {
+        return incidentRepository.findByTitreContainingIgnoreCaseOrDescriptionContainingIgnoreCase(keyword, keyword);
+    }
 
-logging:
-  level:
-    org:
-      hibernate:
-        type: trace
+    // Changer statut d'un incident
+    public IncidentEntity updateIncidentStatus(int id, StatutIncident nouveauStatut) {
+        IncidentEntity incident = incidentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Incident non trouvé avec id: " + id));
+        incident.setStatut(nouveauStatut);
 
-unibank:
-  service:
-    persistence:
-      tenants: 'unibank.components.db.entities'
+        if (nouveauStatut == StatutIncident.RESOLU) {
+            incident.setDateResolution(new Date());
+        }
+
+        return incidentRepository.save(incident);
+    }
+}
+
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/incidents")
+public class IncidentController {
+
+    @Autowired
+    private IncidentService incidentService;
+
+    // 1. Afficher détail d'un incident
+    @GetMapping("/{id}")
+    public IncidentEntity getIncidentById(@PathVariable int id) {
+        return incidentService.getIncidentById(id);
+    }
+
+    // 2. Recherche par mot clé
+    @GetMapping("/search")
+    public List<IncidentEntity> searchIncidents(@RequestParam String keyword) {
+        return incidentService.searchIncidentsByKeyword(keyword);
+    }
+
+    // 3. Changer statut d'un incident
+    @PutMapping("/{id}/statut")
+    public IncidentEntity updateIncidentStatus(@PathVariable int id, @RequestParam StatutIncident statut) {
+        return incidentService.updateIncidentStatus(id, statut);
+    }
+}
+
