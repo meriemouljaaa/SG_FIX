@@ -1,8 +1,43 @@
-    public IncidentResponse(int id, String titre, String description, String statut, String priorite, String gravite) {
-        this.id = id;
-        this.titre = titre;
-        this.description = description;
-        this.statut = statut;
-        this.priorite = priorite;
-        this.gravite = gravite;
-    }
+spring:
+  application:
+    name: unibank-service-sgfix
+
+  profiles:
+    group:
+      local:
+        - embedded-rabbitmq
+        - database-migration
+      test:
+        - unibank-test
+    include:
+      - unibank-core
+      - unibank-persistence-simple
+
+  cloud:
+    vault:
+      enabled: false
+      kv:
+        enabled: false
+
+  jpa:
+    hibernate:
+      ddl-auto: none   # Hibernate ne crée PAS les tables, c'est Liquibase qui le fera
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  liquibase:
+    enabled: true
+    change-log: classpath:/db/changelog/db.changelog-master.xml # <-- chemin vers ton fichier liquibase XML
+
+logging:
+  level:
+    org:
+      hibernate:
+        type: trace
+
+unibank:
+  service:
+    persistence:
+      tenants: 'unibank.components.db.entities'
