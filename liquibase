@@ -1,55 +1,87 @@
-package ton.package.service;
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
 
-import ton.package.entity.IncidentEntity;
-import ton.package.repository.IncidentRepository;
-import ton.package.model.CreateIncidentRequest;
+    <!-- Table Service (doit être créée en premier) -->
+    <changeSet id="1" author="ton_nom">
+        <createTable tableName="service">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="nom" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(255)"/>
+        </createTable>
+    </changeSet>
 
-import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Autowired;
+    <!-- Table Incident -->
+    <changeSet id="2" author="ton_nom">
+        <createTable tableName="incident">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="titre" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(255)"/>
+            <column name="date_attribution" type="DATE"/>
+            <column name="date_resolution" type="DATE"/>
+            <column name="statut" type="VARCHAR(50)"/>
+            <column name="priorite" type="VARCHAR(50)"/>
+            <column name="gravite" type="VARCHAR(50)"/>
+            <column name="service_id" type="BIGINT"/>
+        </createTable>
 
-import java.util.List;
-import java.util.Optional;
+        <!-- Ajouter la contrainte de clé étrangère -->
+        <addForeignKeyConstraint
+            baseTableName="incident"
+            baseColumnNames="service_id"
+            referencedTableName="service"
+            referencedColumnNames="id"
+            constraintName="fk_incident_service"/>
+    </changeSet>
 
-@Service
-public class IncidentService {
+    <!-- Table Documentation (dépend de Incident) -->
+    <changeSet id="3" author="ton_nom">
+        <createTable tableName="documentation">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="contenu" type="TEXT"/>
+            <column name="date_ajout" type="DATE"/>
+            <column name="incident_id" type="BIGINT"/>
+        </createTable>
 
-    private final IncidentRepository incidentRepository;
+        <!-- Ajouter la contrainte de clé étrangère -->
+        <addForeignKeyConstraint
+            baseTableName="documentation"
+            baseColumnNames="incident_id"
+            referencedTableName="incident"
+            referencedColumnNames="id"
+            constraintName="fk_documentation_incident"/>
+    </changeSet>
 
-    @Autowired
-    public IncidentService(IncidentRepository incidentRepository) {
-        this.incidentRepository = incidentRepository;
-    }
+    <!-- Table RapportResolution (dépend de Incident) -->
+    <changeSet id="4" author="ton_nom">
+        <createTable tableName="rapport_resolution">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="date_generation" type="DATE"/>
+            <column name="incident_id" type="BIGINT"/>
+        </createTable>
 
-    public List<IncidentEntity> getAllIncidents() {
-        return incidentRepository.findAll();
-    }
+        <!-- Ajouter la contrainte de clé étrangère -->
+        <addForeignKeyConstraint
+            baseTableName="rapport_resolution"
+            baseColumnNames="incident_id"
+            referencedTableName="incident"
+            referencedColumnNames="id"
+            constraintName="fk_rapportresolution_incident"/>
+    </changeSet>
 
-    public Optional<IncidentEntity> getIncidentById(Integer id) {
-        return incidentRepository.findById(id);
-    }
-
-    public IncidentEntity createIncident(CreateIncidentRequest request) {
-        IncidentEntity incident = new IncidentEntity();
-        incident.setTitre(request.getTitre());
-        incident.setDescription(request.getDescription());
-        incident.setStatut(request.getStatutIncident() != null ? StatutIncident.valueOf(request.getStatutIncident()) : null);
-        incident.setGravite(request.getGravite() != null ? GraviteIncident.valueOf(request.getGravite()) : null);
-        incident.setPriorite(request.getPriorite() != null ? PrioriteIncident.valueOf(request.getPriorite()) : null);
-        incident.setDateAttribution(request.getDateAttribution());
-        incident.setDateResolution(request.getDateResolution());
-        incident.setFichierJoint(request.getFichierJoint());
-        
-        // Ici pour le service associé, il faudra aller chercher le service à partir de son ID
-        if (request.getServiceId() != null) {
-            ServiceEntity service = new ServiceEntity();
-            service.setId(request.getServiceId()); // Supposant qu'il y a un setId
-            incident.setService(service);
-        }
-
-        return incidentRepository.save(incident);
-    }
-
-    public void deleteIncident(Integer id) {
-        incidentRepository.deleteById(id);
-    }
-}
+</databaseChangeLog>
