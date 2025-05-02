@@ -1,12 +1,10 @@
-public interface IncidentRepository extends JpaRepository<IncidentEntity, Integer> {
-    
-    List<IncidentEntity> findByClient_Urn_Value(String clientId);
-    
-    List<IncidentEntity> findByCoeDev_Urn_Value(String coeDevId);
+public List<IncidentEntity> getIncidentsDeclaredByClientIgg(String igg) {
+    return incidentRepository.findByClient_Igg(igg);
 }
-public List<IncidentEntity> getIncidentsResolvedByCoeDev(String userId) {
-    return incidentRepository.findByCoeDev_Urn_Value(userId);
+
+public List<IncidentEntity> getIncidentsResolvedByCoeDevIgg(String igg) {
+    return incidentRepository.findByCoeDev_Igg(igg);
 }
-public List<IncidentEntity> getIncidentsDeclaredByClient(String userId) {
-    return incidentRepository.findByClient_Urn_Value(userId);
-}
+List<IncidentEntity> findByClient_Igg(String igg);
+
+List<IncidentEntity> findByCoeDev_Igg(String igg);
