@@ -1,32 +1,12 @@
-<changeSet id="add-users-table" author="meriem">
-    <createTable tableName="users">
-        <column name="id" type="VARCHAR(255)">
-            <constraints primaryKey="true" nullable="false"/>
-        </column>
-        <column name="igg" type="VARCHAR(255)"/>
-        <column name="role" type="VARCHAR(255)"/>
-        <column name="mail" type="VARCHAR(255)"/>
-        <column name="first_name" type="VARCHAR(255)"/>
-        <column name="last_name" type="VARCHAR(255)"/>
-    </createTable>
-</changeSet>
-<changeSet id="add-client-coedev-to-incident" author="meriem">
-    <addColumn tableName="incident">
-        <column name="client_id" type="VARCHAR(255)"/>
-        <column name="coe_dev_id" type="VARCHAR(255)"/>
-    </addColumn>
-
-    <addForeignKeyConstraint 
-        baseTableName="incident"
-        baseColumnNames="client_id"
-        referencedTableName="users"
-        referencedColumnNames="id"
-        constraintName="fk_incident_client"/>
-
-    <addForeignKeyConstraint 
-        baseTableName="incident"
-        baseColumnNames="coe_dev_id"
-        referencedTableName="users"
-        referencedColumnNames="id"
-        constraintName="fk_incident_coedev"/>
-</changeSet>
+public interface IncidentRepository extends JpaRepository<IncidentEntity, Integer> {
+    
+    List<IncidentEntity> findByClient_Urn_Value(String clientId);
+    
+    List<IncidentEntity> findByCoeDev_Urn_Value(String coeDevId);
+}
+public List<IncidentEntity> getIncidentsResolvedByCoeDev(String userId) {
+    return incidentRepository.findByCoeDev_Urn_Value(userId);
+}
+public List<IncidentEntity> getIncidentsDeclaredByClient(String userId) {
+    return incidentRepository.findByClient_Urn_Value(userId);
+}
