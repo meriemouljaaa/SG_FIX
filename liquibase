@@ -1,10 +1,10 @@
-public List<IncidentEntity> getIncidentsDeclaredByClientIgg(String igg) {
-    return incidentRepository.findByClient_Igg(igg);
+@GetMapping("/statut")
+public ResponseEntity<List<IncidentEntity>> getIncidentsByStatut(@RequestParam String statut) {
+    try {
+        StatutIncident statutEnum = StatutIncident.valueOf(statut.toUpperCase());
+        List<IncidentEntity> incidents = incidentService.getIncidentsByStatut(statutEnum);
+        return ResponseEntity.ok(incidents);
+    } catch (IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(Collections.emptyList());
+    }
 }
-
-public List<IncidentEntity> getIncidentsResolvedByCoeDevIgg(String igg) {
-    return incidentRepository.findByCoeDev_Igg(igg);
-}
-List<IncidentEntity> findByClient_Igg(String igg);
-
-List<IncidentEntity> findByCoeDev_Igg(String igg);
