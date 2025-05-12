@@ -1,10 +1,7 @@
-@GetMapping("/statut")
-public ResponseEntity<List<IncidentEntity>> getIncidentsByStatut(@RequestParam String statut) {
-    try {
-        StatutIncident statutEnum = StatutIncident.valueOf(statut.toUpperCase());
-        List<IncidentEntity> incidents = incidentService.getIncidentsByStatut(statutEnum);
-        return ResponseEntity.ok(incidents);
-    } catch (IllegalArgumentException e) {
-        return ResponseEntity.badRequest().body(Collections.emptyList());
-    }
+@font-face {
+  font-family: 'Roboto';
+  src: url('/fonts/roboto.woff2') format('woff2'),
+       url('/fonts/roboto.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
 }
