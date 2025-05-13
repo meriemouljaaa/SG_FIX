@@ -1,91 +1,94 @@
-'use client';
+// AppManager.ts
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import Link from 'next/link';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import jwtDecode from 'jwt-decode';
 
-import AppManager from '../../lib/AppManager'; // chemin à adapter selon ton projet
-import logoImage from '../../../public/images/logoImage.png';
-import backgroundImage from '../../../public/images/background.jpg';
+const SGCONNECT_AUTH_URL = "https://auth.sgconnect.com/oauth/authorize";
+const SGCONNECT_TOKEN_URL = "https://auth.sgconnect.com/oauth/token";
 
-const SignInForm = () => {
-    const [showPassword, setShowPassword] = useState(false);
-    const [status, setStatus] = useState<null | 'loading' | 'error'>(null);
-    const router = useRouter();
+const CLIENT_ID = "your-client-id";
+const REDIRECT_URI = "http://localhost:3000/callback";
+const SCOPE = "openid profile email";
+const RESPONSE_TYPE = "code";
 
-    const handleOAuthSignIn = async () => {
-        setStatus('loading');
-        try {
-            const authUrl = await AppManager.authorize();
-            window.location.href = authUrl;
-        } catch (error) {
-            console.error("Erreur OAuth2 :", error);
-            setStatus('error');
-        }
-    };
+class AppManager {
+  // Génère un code_verifier aléatoire
+  private static generateCodeVerifier(length = 128): string {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+    const randomValues = crypto.getRandomValues(new Uint8Array(length));
+    return Array.from(randomValues).map(x => chars[x % chars.length]).join('');
+  }
 
-    return (
-        <div className="relative min-h-screen flex justify-center items-center">
-            <div className="absolute inset-0 -z-10">
-                <Image
-                    src={backgroundImage}
-                    alt="Background"
-                    fill
-                    style={{ objectFit: 'cover' }}
-                />
-            </div>
+  // Encode ArrayBuffer to base64url string
+  private static base64UrlEncode(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+  }
 
-            <div className="relative bg-white bg-opacity-100 shadow-lg rounded-2xl w-full max-w-4xl h-[500px] p-6 flex flex-col justify-between">
-                <div className="flex flex-col items-center mb-4">
-                    <Link href="/public" className="flex items-center no-underline">
-                        <Image src={logoImage} alt="Logo" width={300} height={250} />
-                    </Link>
-                    <div className="h-4" />
-                    <h2 className="text-[18px] font-bold text-gray-700">Sign in</h2>
-                </div>
+  // Transforme le code_verifier en code_challenge
+  private static async generateCodeChallenge(codeVerifier: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(codeVerifier);
+    const digest = await crypto.subtle.digest("SHA-256", data);
+    return this.base64UrlEncode(digest);
+  }
 
-                <div className="text-center text-[16px] mb-4 text-gray-600">
-                    Connectez-vous via SGConnect
-                </div>
+  // Construit l'URL d'autorisation OAuth2 avec PKCE
+  public static async authorize(): Promise<string> {
+    const codeVerifier = this.generateCodeVerifier();
+    const codeChallenge = await this.generateCodeChallenge(codeVerifier);
 
-                <button
-                    onClick={handleOAuthSignIn}
-                    className="w-full rounded-md bg-red-500 text-white text-[18px] font-semibold py-3 shadow hover:bg-red-600 transition"
-                >
-                    Sign in
-                </button>
+    sessionStorage.setItem("pkce_code_verifier", codeVerifier);
 
-                {status === 'loading' && (
-                    <div className="absolute bottom-0 left-0 w-full h-2 overflow-hidden">
-                        <div
-                            className="h-full bg-green-500"
-                            style={{
-                                width: '0%',
-                                animation: 'loadBar 3s ease-in-out forwards',
-                            }}
-                        />
-                        <style jsx>{`
-                            @keyframes loadBar {
-                                0% { width: 0%; }
-                                100% { width: 100%; }
-                            }
-                        `}</style>
-                    </div>
-                )}
+    const params = new URLSearchParams({
+      response_type: RESPONSE_TYPE,
+      client_id: CLIENT_ID,
+      redirect_uri: REDIRECT_URI,
+      scope: SCOPE,
+      code_challenge_method: "S256",
+      code_challenge: codeChallenge
+    });
 
-                {status === 'error' && (
-                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-red-100 text-red-700 px-4 py-2 rounded-md flex items-center shadow-md border border-red-300 text-sm">
-                        <svg className="h-4 w-4 mr-2 fill-red-600" viewBox="0 0 20 20">
-                            <path d="M10 0C4.5 0 0 4.5 0 10s4.5 10 10 10 10-4.5 10-10S15.5 0 10 0zM9 4h2v6H9V4zm0 8h2v2H9v-2z" />
-                        </svg>
-                        Erreur de connexion OAuth
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
+    return `${SGCONNECT_AUTH_URL}?${params.toString()}`;
+  }
 
-export default SignInForm;
+  // Échange le code contre un token
+  public static async getToken(code: string): Promise<any> {
+    const codeVerifier = sessionStorage.getItem("pkce_code_verifier");
+
+    const response = await fetch(SGCONNECT_TOKEN_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: CLIENT_ID,
+        redirect_uri: REDIRECT_URI,
+        code_verifier: codeVerifier || "",
+        code: code
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error_description || "Erreur lors de l'obtention du token");
+    }
+
+    return data;
+  }
+
+  // Décode un JWT
+  public static decodeJWT(token: string): any {
+    return jwtDecode(token);
+  }
+}
+
+export default AppManager;
