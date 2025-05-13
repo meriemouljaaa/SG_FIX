@@ -1,111 +1,4 @@
-import jwtDecode from 'jwt-decode';
-import pkceChallenge from 'pkce-challenge';
-import cryptoRandomString from 'crypto-random-string';
-
-const SGCONNECT_AUTH_URL = "https://ami-identity-uat-paris.afs.socgen/oauth2/authorize";
-const SGCONNECT_TOKEN_URL = "https://ami-identity-uat-paris.afs.socgen/oauth2/token";
-const CLIENT_ID = "RO_Mgvk5Zf7VdeBEhdldn6Vh9ZIa";
-const CLIENT_SECRET = "n_SWneOA8pnAmwh91jcAgh7UDZoa";
-const REDIRECT_URI = "http://localhost:3000/callback";
-const SCOPE = "openid profile email";
-const RESPONSE_TYPE = "code";
-
-class SGConnectManager {
-  static async authorize(): Promise<void> {
-    const { code_verifier, code_challenge } = pkceChallenge();
-    const state = cryptoRandomString({ length: 32, type: 'hex' });
-
-    sessionStorage.setItem("pkce_code_verifier", code_verifier);
-    sessionStorage.setItem("auth_state", state);
-
-    const authUrl = new URL(SGCONNECT_AUTH_URL);
-    authUrl.searchParams.set("client_id", CLIENT_ID);
-    authUrl.searchParams.set("redirect_uri", REDIRECT_URI);
-    authUrl.searchParams.set("response_type", RESPONSE_TYPE);
-    authUrl.searchParams.set("scope", SCOPE);
-    authUrl.searchParams.set("state", state);
-    authUrl.searchParams.set("code_challenge", code_challenge);
-    authUrl.searchParams.set("code_challenge_method", "S256");
-
-    window.location.href = authUrl.toString();
-  }
-
-  static async getToken(code: string): Promise<any> {
-    const code_verifier = sessionStorage.getItem("pkce_code_verifier");
-    if (!code_verifier) throw new Error("Code verifier missing");
-
-    const params = new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET, // Note: this is sensitive! Prefer backend if possible.
-      code,
-      redirect_uri: REDIRECT_URI,
-      code_verifier
-    });
-
-    const response = await fetch(SGCONNECT_TOKEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params.toString()
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error_description || "Erreur lors de l'obtention du token");
-    }
-
-    return data;
-  }
-
-  static decodeJWT(token: string): any {
-    return jwtDecode(token);
-  }
-}
-
-export default SGConnectManager;
-
-
-import { useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import SGConnectManager from './SGConnectManager';
-
-export default function CallbackPage() {
-  const [params] = useSearchParams();
-
-  useEffect(() => {
-    const code = params.get("code");
-    if (code) {
-      SGConnectManager.getToken(code).then(data => {
-        const decoded = SGConnectManager.decodeJWT(data.id_token);
-        console.log("User info:", decoded);
-        // stocke dans localStorage ou context
-      }).catch(console.error);
-    }
-  }, [params]);
-
-  return <div>Authentification en cours...</div>;
-}
-
-
-import SGConnectManager from '@/lib/SGConnectManager'; // ou le bon chemin vers ton gestionnaire
-
-export default function Home() {
-  const handleLogin = () => {
-    SGConnectManager.authorize(); // redirige vers SGConnect
-  };
-
-  return (
-    <div>
-      <h1>Bienvenue</h1>
-      <button onClick={handleLogin}>Se connecter avec SGConnect</button>
-      <SignUpForm />
-    </div>
-  );
-}
-
-
-'use client'; // si tu utilises Next.js App Router
+'use client';
 import { useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import SGConnectManager from '@/lib/SGConnectManager';
@@ -115,20 +8,39 @@ export default function CallbackPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const code = params.get("code");
+    const code = params.get('code');
     if (code) {
-      SGConnectManager.getToken(code).then(data => {
-        const decoded = SGConnectManager.decodeJWT(data.id_token);
-        console.log("User info:", decoded);
-        localStorage.setItem("access_token", data.access_token);
-        localStorage.setItem("user_info", JSON.stringify(decoded));
-        router.push("/dashboard"); // ou où tu veux rediriger
-      }).catch(err => {
-        console.error(err);
-        router.push("/error"); // ou une page d’erreur
-      });
+      SGConnectManager.getToken(code)
+        .then((data) => {
+          const decoded = SGConnectManager.decodeJWT(data.id_token);
+
+          // Stocker les infos dans localStorage ou autre (facultatif)
+          localStorage.setItem('access_token', data.access_token);
+          localStorage.setItem('user_info', JSON.stringify(decoded));
+
+          // ✅ Redirection vers la HomePage
+          router.push('/home');
+        })
+        .catch((err) => {
+          console.error('Erreur lors de la récupération du token :', err);
+          router.push('/error'); // Rediriger vers une page d’erreur si besoin
+        });
     }
   }, [params]);
 
   return <div>Authentification en cours...</div>;
+}
+'use client';
+import SGConnectManager from '@/lib/SGConnectManager';
+
+export default function Home() {
+  const handleSignIn = async () => {
+    await SGConnectManager.authorize();
+  };
+
+  return (
+    <div>
+      <button onClick={handleSignIn}>Sign In</button>
+    </div>
+  );
 }
