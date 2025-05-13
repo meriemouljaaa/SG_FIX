@@ -1,1 +1,9 @@
-Array.from(crypto.getRandomValues(new Uint8Array(length)))
+import jwtDecode from 'jwt-decode'; // ✅ Importation correcte
+
+function generateCodeVerifier(length = 128): string {
+  const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+
+  return Array.from(crypto.getRandomValues(new Uint8Array(length))) // ✅ Uint8Array correct
+    .map(x => possible[x % possible.length])
+    .join('');
+}
