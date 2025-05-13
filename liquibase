@@ -1,6 +1,107 @@
-function base64urlencode(buffer: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+// app/utils/AppManager.ts
+
+import jwtDecode from 'jwt-decode';
+
+interface DecodedToken {
+  exp: number;
+  sub: string;
+  [key: string]: any;
+}
+
+const SGCONNECT_CONFIG = {
+  clientId: 'VOTRE_CLIENT_ID', // <-- Remplace par ton vrai clientId
+  clientSecret: 'VOTRE_CLIENT_SECRET', // <-- Remplace par ton vrai clientSecret
+  redirectUri: 'http://localhost:3000/callback',
+  authUrl: 'https://sgconnect.dev-digital.tn/auth/realms/SG-REALM/protocol/openid-connect/auth',
+  tokenUrl: 'https://sgconnect.dev-digital.tn/auth/realms/SG-REALM/protocol/openid-connect/token',
+  scope: 'openid profile email',
+};
+
+let codeVerifierGlobal = '';
+
+export default class AppManager {
+  static async generateCodeVerifier(length = 128): Promise<string> {
+    const array = new Uint8Array(length);
+    crypto.getRandomValues(array);
+    return Array.from(array)
+      .map((x) => 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~'[x % 66])
+      .join('');
+  }
+
+  static async generateCodeChallenge(codeVerifier: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(codeVerifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return this.base64urlencode(digest);
+  }
+
+  static base64urlencode(buffer: ArrayBuffer): string {
+    return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+  }
+
+  static async authorize(): Promise<void> {
+    const codeVerifier = await this.generateCodeVerifier();
+    codeVerifierGlobal = codeVerifier;
+    const codeChallenge = await this.generateCodeChallenge(codeVerifier);
+
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: SGCONNECT_CONFIG.clientId,
+      redirect_uri: SGCONNECT_CONFIG.redirectUri,
+      scope: SGCONNECT_CONFIG.scope,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+    });
+
+    const authUrl = `${SGCONNECT_CONFIG.authUrl}?${params.toString()}`;
+    window.location.href = authUrl;
+  }
+
+  static async exchangeCodeForToken(code: string): Promise<any> {
+    const params = new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: SGCONNECT_CONFIG.clientId,
+      client_secret: SGCONNECT_CONFIG.clientSecret,
+      redirect_uri: SGCONNECT_CONFIG.redirectUri,
+      code_verifier: codeVerifierGlobal,
+      code,
+    });
+
+    const response = await fetch(SGCONNECT_CONFIG.tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to exchange code for token');
+    }
+
+    const tokenData = await response.json();
+    localStorage.setItem('access_token', tokenData.access_token);
+    localStorage.setItem('id_token', tokenData.id_token);
+    return tokenData;
+  }
+
+  static getDecodedToken(): DecodedToken | null {
+    const token = localStorage.getItem('id_token');
+    if (!token) return null;
+
+    try {
+      return jwtDecode<DecodedToken>(token);
+    } catch (error) {
+      console.error('Error decoding token', error);
+      return null;
+    }
+  }
+
+  static logout() {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('id_token');
+  }
 }
