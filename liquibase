@@ -1,46 +1,120 @@
-'use client';
-import { useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import SGConnectManager from '@/lib/SGConnectManager';
+@Entity
+@Table(name = "users")
+@Data
+public class UserEntity {
 
-export default function CallbackPage() {
-  const params = useSearchParams();
-  const router = useRouter();
+    @Id
+    @Column(name = "sub", nullable = false, unique = true)
+    private String sub; // Correspond à "sub" (ex: "M978367")
 
-  useEffect(() => {
-    const code = params.get('code');
-    if (code) {
-      SGConnectManager.getToken(code)
-        .then((data) => {
-          const decoded = SGConnectManager.decodeJWT(data.id_token);
+    @Column(name = "mail")
+    private String mail; // "mail"
 
-          // Stocker les infos dans localStorage ou autre (facultatif)
-          localStorage.setItem('access_token', data.access_token);
-          localStorage.setItem('user_info', JSON.stringify(decoded));
+    @Column(name = "first_name")
+    private String firstName; // "givenname"
 
-          // ✅ Redirection vers la HomePage
-          router.push('/home');
-        })
-        .catch((err) => {
-          console.error('Erreur lors de la récupération du token :', err);
-          router.push('/error'); // Rediriger vers une page d’erreur si besoin
-        });
-    }
-  }, [params]);
+    @Column(name = "last_name")
+    private String lastName; // "sn"
 
-  return <div>Authentification en cours...</div>;
+    @Column(name = "full_name")
+    private String fullName; // "name"
+
+    @Column(name = "igg")
+    private String igg; // "sgigg"
+
+    @Column(name = "role")
+    private String role; // "sgjob"
+
+    @Column(name = "service_name")
+    private String serviceName; // "sgservicename"
+
+    @Column(name = "country")
+    private String country; // "c"
 }
-'use client';
-import SGConnectManager from '@/lib/SGConnectManager';
 
-export default function Home() {
-  const handleSignIn = async () => {
-    await SGConnectManager.authorize();
-  };
 
-  return (
-    <div>
-      <button onClick={handleSignIn}>Sign In</button>
-    </div>
-  );
+@Service
+public class UserService {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    public UserEntity saveOrUpdateUser(Map<String, Object> tokenData) {
+        String sub = (String) tokenData.get("sub");
+        Optional<UserEntity> optionalUser = userRepository.findById(sub);
+
+        UserEntity user = optionalUser.orElse(new UserEntity());
+        user.setSub(sub);
+        user.setMail((String) tokenData.get("mail"));
+        user.setFirstName((String) tokenData.get("givenname"));
+        user.setLastName((String) tokenData.get("sn"));
+        user.setFullName((String) tokenData.get("name"));
+        user.setIgg((String) tokenData.get("sgigg"));
+        user.setRole((String) tokenData.get("sgjob"));
+        user.setServiceName((String) tokenData.get("sgservicename"));
+        user.setCountry((String) tokenData.get("c"));
+
+        return userRepository.save(user);
+    }
+}
+Optional<User> findByMail(String mail);
+
+public class UserMapper {
+
+    public static UserEntity toEntity(User user) {
+        UserEntity entity = new UserEntity();
+        entity.setSub(user.getSub());
+        entity.setMail(user.getMail());
+        entity.setFirstName(user.getFirstName());
+        entity.setLastName(user.getLastName());
+        entity.setFullName(user.getFullName());
+        entity.setIgg(user.getIgg());
+        entity.setRole(user.getRole());
+        entity.setServiceName(user.getServiceName());
+        entity.setCountry(user.getCountry());
+        return entity;
+    }
+
+    public static User toDomain(UserEntity entity) {
+        return new User(
+            entity.getSub(),
+            entity.getMail(),
+            entity.getFirstName(),
+            entity.getLastName(),
+            entity.getFullName(),
+            entity.getIgg(),
+            entity.getRole(),
+            entity.getServiceName(),
+            entity.getCountry()
+        );
+    }
+}
+@Override
+public Optional<User> findByMail(String mail) {
+    return springRepo.findByMail(mail)
+                     .map(UserMapper::toDomain);
+}
+@Override
+public List<User> findByRole(String role) {
+    return springRepo.findByRole(role)
+                     .stream()
+                     .map(UserMapper::toDomain)
+                     .collect(Collectors.toList());
+}
+List<User> findByRole(String role);
+List<User> findAll();
+@Override
+public List<User> findAll() {
+    return springRepo.findAll()
+                     .stream()
+                     .map(UserMapper::toDomain)
+                     .collect(Collectors.toList());
+}
+List<User> findByServiceName(String serviceName);
+@Override
+public List<User> findByServiceName(String serviceName) {
+    return springRepo.findByServiceName(serviceName)
+                     .stream()
+                     .map(UserMapper::toDomain)
+                     .collect(Collectors.toList());
 }
