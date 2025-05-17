@@ -1,5 +1,44 @@
-@ElementCollection(fetch = FetchType.EAGER)
-@Enumerated(EnumType.STRING)
-@CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
-@Column(name = "role")
-private Set<RoleName> roles;
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.6.xsd">
+
+    <!-- Créer la table 'users' -->
+    <changeSet id="1-create-users-table" author="yourname">
+        <createTable tableName="users">
+            <column name="sub" type="VARCHAR(100)">
+                <constraints primaryKey="true" nullable="false" unique="true"/>
+            </column>
+            <column name="mail" type="VARCHAR(255)"/>
+            <column name="first_name" type="VARCHAR(255)"/>
+            <column name="last_name" type="VARCHAR(255)"/>
+            <column name="full_name" type="VARCHAR(255)"/>
+            <column name="igg" type="VARCHAR(100)"/>
+            <column name="service_name" type="VARCHAR(255)"/>
+            <column name="country" type="VARCHAR(100)"/>
+        </createTable>
+    </changeSet>
+
+    <!-- Créer la table 'user_roles' (relation plusieurs rôles par user) -->
+    <changeSet id="2-create-user-roles-table" author="yourname">
+        <createTable tableName="user_roles">
+            <column name="user_id" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+            baseTableName="user_roles"
+            baseColumnNames="user_id"
+            constraintName="fk_user_roles_users"
+            referencedTableName="users"
+            referencedColumnNames="sub"
+            onDelete="CASCADE"/>
+    </changeSet>
+
+</databaseChangeLog>
