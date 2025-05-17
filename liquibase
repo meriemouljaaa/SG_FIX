@@ -1,4 +1,45 @@
-try {
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Service
+public class SaveUserImpl implements SaveUser {
+    private static final Logger logger = LoggerFactory.getLogger(SaveUserImpl.class);
+
+    private final AuthenticationUtils authenticationUtils;
+    private final UsersRepository usersRepository;
+
+    public SaveUserImpl(AuthenticationUtils authenticationUtils, UsersRepository usersRepository) {
+        this.authenticationUtils = authenticationUtils;
+        this.usersRepository = usersRepository;
+    }
+
+    @Override
+    public UserResponse handle(SaveUserRequest input, RequestContext context) {
+        logger.info("Received SaveUserRequest: {}", input);
+        logger.info("Received RequestContext: {}", context);
+
+        // Check for context-entity-ID
+        String entityId = extractEntityIdFromContext(context);
+        if (entityId == null || entityId.isEmpty()) {
+            logger.error("context-entity-ID is required but missing or empty in RequestContext");
+            throw new SecurityException("Access denied: context-entity-ID is required");
+        }
+        logger.info("Extracted context-entity-ID: {}", entityId);
+
+        UserEntity user = new UserEntity();
+        user.setSub(input.getSub());
+        user.setIgg(input.getSub());
+        user.setMail(input.getMail());
+        user.setFirstName(input.getFirstName());
+        user.setLastName(input.getLastName());
+        user.setServiceName(input.getServiceName());
+        user.setFullName(input.getFullName());
+
+        // Safely map roles, filtering out invalid ones
+        try {
             Set<RoleName> roles = input.getRole().stream()
                 .map(role -> {
                     try {
@@ -20,3 +61,17 @@ try {
         UserEntity savedUser = usersRepository.saveUser(user);
         return usersRepository.mapUserToDto(savedUser);
     }
+
+    private String extractEntityIdFromContext(RequestContext context) {
+        // Placeholder method - adjust based on your RequestContext implementation
+        if (context != null) {
+            // Example: If context-entity-ID is a method or field in RequestContext
+            if (context.getEntityId() != null) {
+                return context.getEntityId().toString();
+            }
+            // Example: If it's in a header or token via AuthenticationUtils
+            return authenticationUtils.getContextEntityId(context);
+        }
+        return null;
+    }
+}
