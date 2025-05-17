@@ -1,14 +1,5 @@
-public class RoleDTO {
-    private Long id;
-    private RoleName name;
-}
-public UserDTO toDTO(UserEntity user) {
-    UserDTO dto = new UserDTO();
-    dto.setId(user.getId().toString());
-    dto.setFirstName(user.getFirstName());
-    dto.setLastName(user.getLastName());
-    dto.setMail(user.getMail());
-    dto.setIgg(user.getIgg());
-    dto.setRoles(user.getRoles().stream().map(Role::getName).collect(Collectors.toSet()));
-    return dto;
-}
+@ElementCollection(fetch = FetchType.EAGER)
+@Enumerated(EnumType.STRING)
+@CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
+@Column(name = "role")
+private Set<RoleName> roles;
