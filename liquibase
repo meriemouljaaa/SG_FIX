@@ -65,3 +65,5 @@ public interface IncidentJpaRepository extends JpaRepository<IncidentEntity, Lon
     @Query("SELECT i FROM IncidentEntity i JOIN FETCH i.client JOIN FETCH i.coeDev")
     List<IncidentEntity> findAll();
 }
+@Query("SELECT i FROM IncidentEntity i JOIN FETCH i.client JOIN FETCH i.coeDev")
+Page<IncidentEntity> findAll(Pageable pageable);
