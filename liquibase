@@ -1,69 +1,74 @@
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
+package com.socgen.unibank.services.gateways.outbound.persistence.jpa;
 
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import jakarta.persistence.*;
+import lombok.Data;
 
-@Repository
-public class IncidentRepositoryImpl implements IncidentRepository {
-
-    private final IncidentJpaRepository incidentJpaRepo;
-
-    @Autowired
-    public IncidentRepositoryImpl(IncidentJpaRepository incidentJpaRepo) {
-        this.incidentJpaRepo = incidentJpaRepo;
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<IncidentResponse> getAllIncidents() {
-        return incidentJpaRepo.findAll().stream()
-            .map(incidentEntity -> {
-                IncidentResponse incidentResponse = new IncidentResponse();
-                incidentResponse.setPriorite(incidentEntity.getPriorite() != null ? incidentEntity.getPriorite().name() : null);
-                incidentResponse.setDateAttribution(incidentEntity.getDateAttribution());
-                incidentResponse.setDateResolution(incidentEntity.getDateResolution());
-                incidentResponse.setServiceId(incidentEntity.getService() != null ? incidentEntity.getService().getId() : null);
-                incidentResponse.setDateDeclaration(incidentEntity.getDateDeclaration());
-
-                // Récupérer les informations du client directement (déjà chargé via JOIN FETCH)
-                if (incidentEntity.getClient() != null) {
-                    incidentResponse.setClientSub(incidentEntity.getClient().getSub());
-                    incidentResponse.setClientFirstName(incidentEntity.getClient().getFirstName());
-                    incidentResponse.setClientLastName(incidentEntity.getClient().getLastName());
-                    incidentResponse.setClientFullName(incidentEntity.getClient().getFullName());
-                    incidentResponse.setClientIgg(incidentEntity.getClient().getIgg());
-                    incidentResponse.setClientRole(incidentEntity.getClient().getRoles() != null ? incidentEntity.getClient().getRoles() : Set.of());
-                    incidentResponse.setClientMail(incidentEntity.getClient().getMail());
-                    incidentResponse.setClientServiceName(incidentEntity.getClient().getServiceName());
-                }
-
-                // Récupérer les informations du coeDev directement (déjà chargé via JOIN FETCH)
-                if (incidentEntity.getCoeDev() != null) {
-                    incidentResponse.setCoeDevSub(incidentEntity.getCoeDev().getSub());
-                    incidentResponse.setCoeDevFirstName(incidentEntity.getCoeDev().getFirstName());
-                    incidentResponse.setCoeDevLastName(incidentEntity.getCoeDev().getLastName());
-                    incidentResponse.setCoeDevFullName(incidentEntity.getCoeDev().getFullName());
-                    incidentResponse.setCoeDevIgg(incidentEntity.getCoeDev().getIgg());
-                    incidentResponse.setCoeDevRole(incidentEntity.getCoeDev().getRoles() != null ? incidentEntity.getCoeDev().getRoles() : Set.of());
-                    incidentResponse.setCoeDevMail(incidentEntity.getCoeDev().getMail());
-                    incidentResponse.setCoeDevServiceName(incidentEntity.getCoeDev().getServiceName());
-                }
-
-                return incidentResponse;
-            }).collect(Collectors.toList());
-    }
-}
-
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
+import java.util.Date;
 import java.util.List;
 
-public interface IncidentJpaRepository extends JpaRepository<IncidentEntity, Long> {
-    @Query("SELECT i FROM IncidentEntity i JOIN FETCH i.client JOIN FETCH i.coeDev")
-    List<IncidentEntity> findAll();
+@Entity
+@Table(name = "incident")
+@Data
+public class IncidentEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "titre")
+    private String titre;
+
+    @Column(name = "description")
+    private String description;
+
+    @Column(name = "dateAttribution")
+    private Date dateAttribution;
+
+    @Column(name = "dateResolution")
+    private Date dateResolution;
+
+    @Column(name = "dateDeclaration")
+    private Date dateDeclaration;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "statut")
+    private StatutIncident statut;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "priorite")
+    private PrioriteIncident priorite;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gravite")
+    private GraviteIncident gravite;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "du")
+    private DU du; // ✅ DU comme Enum (performance + lisibilité)
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "environnement")
+    private Environnement environnement; // ✅ Environnement HF, HT, DEV, PROD
+
+    @ElementCollection
+    @CollectionTable(name = "incident_tags", joinColumns = @JoinColumn(name = "incident_id"))
+    @Column(name = "tag")
+    private List<String> tags; // ✅ Liste simple de tags (stockée dans table séparée)
+
+    @ManyToOne
+    @JoinColumn(name = "service_id", referencedColumnName = "id")
+    private ServiceEntity service;
+
+    @ManyToOne
+    @JoinColumn(name = "client_id", referencedColumnName = "sub")
+    private UserEntity client;
+
+    @ManyToOne
+    @JoinColumn(name = "coe_dev_id", referencedColumnName = "sub", nullable = true)
+    private UserEntity coeDev;
+
+    @OneToMany(mappedBy = "incident")
+    private List<DocumentationEntity> documentations;
+
+    @OneToMany(mappedBy = "incident")
+    private List<RapportResolutionEntity> rapports;
 }
-@Query("SELECT i FROM IncidentEntity i JOIN FETCH i.client JOIN FETCH i.coeDev")
-Page<IncidentEntity> findAll(Pageable pageable);
