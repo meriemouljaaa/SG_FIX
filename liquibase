@@ -10,12 +10,10 @@ import java.util.stream.Collectors;
 public class IncidentRepositoryImpl implements IncidentRepository {
 
     private final IncidentJpaRepository incidentJpaRepo;
-    private final UserJpaRepository userJpaRepo;
 
     @Autowired
-    public IncidentRepositoryImpl(IncidentJpaRepository incidentJpaRepo, UserJpaRepository userJpaRepo) {
+    public IncidentRepositoryImpl(IncidentJpaRepository incidentJpaRepo) {
         this.incidentJpaRepo = incidentJpaRepo;
-        this.userJpaRepo = userJpaRepo;
     }
 
     @Override
@@ -30,39 +28,40 @@ public class IncidentRepositoryImpl implements IncidentRepository {
                 incidentResponse.setServiceId(incidentEntity.getService() != null ? incidentEntity.getService().getId() : null);
                 incidentResponse.setDateDeclaration(incidentEntity.getDateDeclaration());
 
-                // Récupérer les informations du client via findBySub
+                // Récupérer les informations du client directement (déjà chargé via JOIN FETCH)
                 if (incidentEntity.getClient() != null) {
-                    UserEntity client = userJpaRepo.findBySub(incidentEntity.getClient().getSub())
-                        .orElse(null); // Si le client n'est pas trouvé, on passe à null
-                    if (client != null) {
-                        incidentResponse.setClientSub(client.getSub());
-                        incidentResponse.setClientFirstName(client.getFirstName());
-                        incidentResponse.setClientLastName(client.getLastName());
-                        incidentResponse.setClientFullName(client.getFullName());
-                        incidentResponse.setClientIgg(client.getIgg());
-                        incidentResponse.setClientRole(client.getRoles() != null ? client.getRoles() : Set.of());
-                        incidentResponse.setClientMail(client.getMail());
-                        incidentResponse.setClientServiceName(client.getServiceName());
-                    }
+                    incidentResponse.setClientSub(incidentEntity.getClient().getSub());
+                    incidentResponse.setClientFirstName(incidentEntity.getClient().getFirstName());
+                    incidentResponse.setClientLastName(incidentEntity.getClient().getLastName());
+                    incidentResponse.setClientFullName(incidentEntity.getClient().getFullName());
+                    incidentResponse.setClientIgg(incidentEntity.getClient().getIgg());
+                    incidentResponse.setClientRole(incidentEntity.getClient().getRoles() != null ? incidentEntity.getClient().getRoles() : Set.of());
+                    incidentResponse.setClientMail(incidentEntity.getClient().getMail());
+                    incidentResponse.setClientServiceName(incidentEntity.getClient().getServiceName());
                 }
 
-                // Récupérer les informations du coeDev via findBySub
+                // Récupérer les informations du coeDev directement (déjà chargé via JOIN FETCH)
                 if (incidentEntity.getCoeDev() != null) {
-                    UserEntity coeDev = userJpaRepo.findBySub(incidentEntity.getCoeDev().getSub())
-                        .orElse(null); // Si le coeDev n'est pas trouvé, on passe à null
-                    if (coeDev != null) {
-                        incidentResponse.setCoeDevSub(coeDev.getSub());
-                        incidentResponse.setCoeDevFirstName(coeDev.getFirstName());
-                        incidentResponse.setCoeDevLastName(coeDev.getLastName());
-                        incidentResponse.setCoeDevFullName(coeDev.getFullName());
-                        incidentResponse.setCoeDevIgg(coeDev.getIgg());
-                        incidentResponse.setCoeDevRole(coeDev.getRoles() != null ? coeDev.getRoles() : Set.of());
-                        incidentResponse.setCoeDevMail(coeDev.getMail());
-                        incidentResponse.setCoeDevServiceName(coeDev.getServiceName());
-                    }
+                    incidentResponse.setCoeDevSub(incidentEntity.getCoeDev().getSub());
+                    incidentResponse.setCoeDevFirstName(incidentEntity.getCoeDev().getFirstName());
+                    incidentResponse.setCoeDevLastName(incidentEntity.getCoeDev().getLastName());
+                    incidentResponse.setCoeDevFullName(incidentEntity.getCoeDev().getFullName());
+                    incidentResponse.setCoeDevIgg(incidentEntity.getCoeDev().getIgg());
+                    incidentResponse.setCoeDevRole(incidentEntity.getCoeDev().getRoles() != null ? incidentEntity.getCoeDev().getRoles() : Set.of());
+                    incidentResponse.setCoeDevMail(incidentEntity.getCoeDev().getMail());
+                    incidentResponse.setCoeDevServiceName(incidentEntity.getCoeDev().getServiceName());
                 }
 
                 return incidentResponse;
             }).collect(Collectors.toList());
     }
+}
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import java.util.List;
+
+public interface IncidentJpaRepository extends JpaRepository<IncidentEntity, Long> {
+    @Query("SELECT i FROM IncidentEntity i JOIN FETCH i.client JOIN FETCH i.coeDev")
+    List<IncidentEntity> findAll();
 }
