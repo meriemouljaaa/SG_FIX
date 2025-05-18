@@ -1,17 +1,68 @@
-public List<UserResponse> getAllUsers(RequestContext context) {
-        logger.info("Received RequestContext for getAllUsers: {}", context);
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
-        // Validate context-entity-ID
-        String entityId = authenticationUtils.getContextEntityId(context);
-        if (entityId == null || entityId.isEmpty()) {
-            logger.error("Context_id_entity required but missing in RequestContext");
-            throw new SecurityException("Context_id_entity required");
-        }
-        logger.info("Extracted context-entity-ID: {}", entityId);
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-        // Fetch all users
-        List<UserEntity> users = usersRepository.findAll();
-        return users.stream()
-            .map(this::mapUserToDto)
-            .collect(Collectors.toList());
+@Repository
+public class IncidentRepositoryImpl implements IncidentRepository {
+
+    private final IncidentJpaRepository incidentJpaRepo;
+    private final UserJpaRepository userJpaRepo;
+
+    @Autowired
+    public IncidentRepositoryImpl(IncidentJpaRepository incidentJpaRepo, UserJpaRepository userJpaRepo) {
+        this.incidentJpaRepo = incidentJpaRepo;
+        this.userJpaRepo = userJpaRepo;
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<IncidentResponse> getAllIncidents() {
+        return incidentJpaRepo.findAll().stream()
+            .map(incidentEntity -> {
+                IncidentResponse incidentResponse = new IncidentResponse();
+                incidentResponse.setPriorite(incidentEntity.getPriorite() != null ? incidentEntity.getPriorite().name() : null);
+                incidentResponse.setDateAttribution(incidentEntity.getDateAttribution());
+                incidentResponse.setDateResolution(incidentEntity.getDateResolution());
+                incidentResponse.setServiceId(incidentEntity.getService() != null ? incidentEntity.getService().getId() : null);
+                incidentResponse.setDateDeclaration(incidentEntity.getDateDeclaration());
+
+                // Récupérer les informations du client via findBySub
+                if (incidentEntity.getClient() != null) {
+                    UserEntity client = userJpaRepo.findBySub(incidentEntity.getClient().getSub())
+                        .orElse(null); // Si le client n'est pas trouvé, on passe à null
+                    if (client != null) {
+                        incidentResponse.setClientSub(client.getSub());
+                        incidentResponse.setClientFirstName(client.getFirstName());
+                        incidentResponse.setClientLastName(client.getLastName());
+                        incidentResponse.setClientFullName(client.getFullName());
+                        incidentResponse.setClientIgg(client.getIgg());
+                        incidentResponse.setClientRole(client.getRoles() != null ? client.getRoles() : Set.of());
+                        incidentResponse.setClientMail(client.getMail());
+                        incidentResponse.setClientServiceName(client.getServiceName());
+                    }
+                }
+
+                // Récupérer les informations du coeDev via findBySub
+                if (incidentEntity.getCoeDev() != null) {
+                    UserEntity coeDev = userJpaRepo.findBySub(incidentEntity.getCoeDev().getSub())
+                        .orElse(null); // Si le coeDev n'est pas trouvé, on passe à null
+                    if (coeDev != null) {
+                        incidentResponse.setCoeDevSub(coeDev.getSub());
+                        incidentResponse.setCoeDevFirstName(coeDev.getFirstName());
+                        incidentResponse.setCoeDevLastName(coeDev.getLastName());
+                        incidentResponse.setCoeDevFullName(coeDev.getFullName());
+                        incidentResponse.setCoeDevIgg(coeDev.getIgg());
+                        incidentResponse.setCoeDevRole(coeDev.getRoles() != null ? coeDev.getRoles() : Set.of());
+                        incidentResponse.setCoeDevMail(coeDev.getMail());
+                        incidentResponse.setCoeDevServiceName(coeDev.getServiceName());
+                    }
+                }
+
+                return incidentResponse;
+            }).collect(Collectors.toList());
+    }
+}
