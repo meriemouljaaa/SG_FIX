@@ -4,6 +4,7 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
 
+    <!-- TABLE incident -->
     <changeSet id="create-incident-table" author="oujla">
         <createTable tableName="incident">
             <column name="id" type="BIGINT" autoIncrement="true">
@@ -33,15 +34,28 @@
         </createTable>
     </changeSet>
 
-    <!-- Table pour les tags -->
+    <!-- TABLE incident_tags -->
     <changeSet id="create-incident-tags" author="oujla">
         <createTable tableName="incident_tags">
             <column name="incident_id" type="BIGINT">
-                <constraints nullable="false" foreignKeyName="fk_tags_incident" referencedTableName="incident" referencedColumnNames="id"/>
+                <constraints nullable="false"/>
             </column>
             <column name="tag" type="VARCHAR(100)">
                 <constraints nullable="false"/>
             </column>
         </createTable>
+
+        <!-- Ajout de la clé primaire composite -->
+        <addPrimaryKey tableName="incident_tags"
+                       columnNames="incident_id, tag"
+                       constraintName="pk_incident_tags"/>
+
+        <!-- Ajout de la contrainte de clé étrangère -->
+        <addForeignKeyConstraint constraintName="fk_tags_incident"
+                                 baseTableName="incident_tags"
+                                 baseColumnNames="incident_id"
+                                 referencedTableName="incident"
+                                 referencedColumnNames="id"/>
     </changeSet>
+
 </databaseChangeLog>
