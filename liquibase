@@ -1,61 +1,11 @@
-<databaseChangeLog
-        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
-         https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
-
-    <!-- TABLE incident -->
-    <changeSet id="create-incident-table" author="oujla">
-        <createTable tableName="incident">
-            <column name="id" type="BIGINT" autoIncrement="true">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="titre" type="VARCHAR(255)"/>
-            <column name="description" type="TEXT"/>
-            <column name="dateAttribution" type="DATETIME"/>
-            <column name="dateResolution" type="DATETIME"/>
-            <column name="dateDeclaration" type="DATETIME"/>
-            <column name="statut" type="VARCHAR(50)"/>
-            <column name="priorite" type="VARCHAR(50)"/>
-            <column name="gravite" type="VARCHAR(50)"/>
-            <column name="du" type="VARCHAR(50)"/>
-            <column name="environnement" type="VARCHAR(50)"/>
-            <column name="application" type="VARCHAR(100)"/>
-
-            <column name="service_id" type="BIGINT">
-                <constraints nullable="true" foreignKeyName="fk_incident_service" referencedTableName="service" referencedColumnNames="id"/>
-            </column>
-            <column name="client_id" type="VARCHAR(255)">
-                <constraints nullable="true" foreignKeyName="fk_incident_client" referencedTableName="user_entity" referencedColumnNames="sub"/>
-            </column>
-            <column name="coe_dev_id" type="VARCHAR(255)">
-                <constraints nullable="true" foreignKeyName="fk_incident_coe_dev" referencedTableName="user_entity" referencedColumnNames="sub"/>
-            </column>
-        </createTable>
-    </changeSet>
-
-    <!-- TABLE incident_tags -->
-    <changeSet id="create-incident-tags" author="oujla">
+  <changeSet id="2-create-incident-tags-table" author="your-name">
         <createTable tableName="incident_tags">
             <column name="incident_id" type="BIGINT">
-                <constraints nullable="false"/>
+                <constraints nullable="false" foreignKeyName="fk_incident_tags_incident"
+                             referencedTableName="incident" referencedColumnNames="id"/>
             </column>
-            <column name="tag" type="VARCHAR(100)">
+            <column name="tag" type="VARCHAR(255)">
                 <constraints nullable="false"/>
             </column>
         </createTable>
-
-        <!-- Ajout de la clé primaire composite -->
-        <addPrimaryKey tableName="incident_tags"
-                       columnNames="incident_id, tag"
-                       constraintName="pk_incident_tags"/>
-
-        <!-- Ajout de la contrainte de clé étrangère -->
-        <addForeignKeyConstraint constraintName="fk_tags_incident"
-                                 baseTableName="incident_tags"
-                                 baseColumnNames="incident_id"
-                                 referencedTableName="incident"
-                                 referencedColumnNames="id"/>
     </changeSet>
-
-</databaseChangeLog>
