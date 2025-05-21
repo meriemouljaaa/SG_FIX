@@ -1,11 +1,22 @@
-  <changeSet id="2-create-incident-tags-table" author="your-name">
-        <createTable tableName="incident_tags">
-            <column name="incident_id" type="BIGINT">
-                <constraints nullable="false" foreignKeyName="fk_incident_tags_incident"
-                             referencedTableName="incident" referencedColumnNames="id"/>
-            </column>
-            <column name="tag" type="VARCHAR(255)">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
-    </changeSet>
+import axios from "axios";
+import { Incident } from "./models/Incident"; // Ajuste le chemin si nécessaire
+import { user } from "./models/user"; // Ajuste le chemin si nécessaire
+
+const API_URL = "http://localhost:8082/user";
+
+export const UserService = {
+  saveUser: async (user: user): Promise<any> => { // À typage à préciser selon la réponse du backend
+    try {
+      const response = await axios.post(API_URL, user, {
+        headers: {
+          "Content-Type": "application/json",
+          "X-EntityId": "user", // Vérifie si cette valeur est correcte pour ton backend
+        },
+      });
+      return response.data; // Retourne les données de la réponse
+    } catch (error) {
+      console.error("Erreur lors de l'envoi de l'utilisateur:", error);
+      throw error; // Relance l'erreur pour qu'elle puisse être gérée en amont
+    }
+  },
+};
