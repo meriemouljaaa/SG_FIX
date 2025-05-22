@@ -1,32 +1,32 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ArrowUpDown, Download, Search, SlidersHorizontal
 } from "lucide-react";
 import HeaderBar from '../components/HeaderBar';
 import { IncidentStatus } from '@/app/utils/IncidentStatus';
+import { Incident } from '@/app/utils/Incidents';
 import { initialIncidents } from './data';
 import { IncidentCard } from './Incident-card';
 import { IncidentPriority } from '@/app/utils/IncidentPriority';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Sidebar from '../SideBarComponent/SideBar';
-import { IncidentService } from '@/app/service/IncidentService';
+import IncidentEnCoursPopup from '../incident-en-cours/IncidentEnCoursPopup';
 import { IncidentDetail } from '@/app/models/IncidentDetail';
 
 const IncidentAssignment: React.FC = () => {
-  const [incidents, setIncidents] = useState<IncidentDetail[]>([]);
-  const [selectedIncident, setSelectedIncident] = useState<IncidentDetail | null>(null);
+  const [incidents, setIncidents] = useState<IncidentDetail []>(initialIncidents || []);
+  const [selectedIncident, setSelectedIncident] = useState<IncidentDetail| null>(null);
   const [assignee, setAssignee] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [showFilter, setShowFilter] = useState<boolean>(false);
   const [filterPriority, setFilterPriority] = useState<IncidentPriority | ''>('');
   const [filterDate, setFilterDate] = useState<string>("");
   const [isSortedByPriority, setIsSortedByPriority] = useState<boolean>(false);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const incidentsPerPage = 3;
 
+  // Fonction pour obtenir la valeur numérique de la priorité (pour le tri)
   const priorityValue = (p?: IncidentPriority): number => {
     if (p === IncidentPriority.ELEVEE) return 3;
     if (p === IncidentPriority.MOYENNE) return 2;
@@ -36,26 +36,15 @@ const IncidentAssignment: React.FC = () => {
 
   const handleAssign = (incident: IncidentDetail) => {
     setSelectedIncident(incident);
-    setAssignee(incident.coeDevSub || "");
+    setAssignee(incident.client_firstName || "");
   };
 
-  /*const handleSortByPriority = () => {
+  const handleSortByPriority = () => {
     const sorted = [...incidents].sort((a, b) =>
       priorityValue(b.priorite) - priorityValue(a.priorite)
     );
     setIncidents(sorted);
     setIsSortedByPriority(true);
-  };*/
-
-  const handleFetchIncidents = async () => {
-    try {
-      const response = await IncidentService.getAllIncidents();
-      setIncidents(response);
-      console.log('Réponse incidents:', response);
-    } catch (error) {
-      console.error("Erreur lors de la récupération des incidents :", error);
-      toast.error("Erreur lors de la récupération des incidents.");
-    }
   };
 
   const handleSubmitAssignment = () => {
@@ -63,20 +52,35 @@ const IncidentAssignment: React.FC = () => {
       setIncidents(incidents.map(inc =>
         inc.id === selectedIncident.id ? { ...inc, assignedTo: assignee } : inc
       ));
-      toast.success(`Incident "${selectedIncident.titre}" affecté à ${assignee} avec succès !`);
+      toast.success(`Incident "${selectedIncident.titre}" affecté à ${assignee} avec succès !`, {
+        position: "bottom-center",
+        autoClose: 4000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: "light",
+      });
       setSelectedIncident(null);
       setAssignee("");
     } else {
-      toast.error("Veuillez saisir un nom valide pour l'assigné.");
+      toast.error("Veuillez saisir un nom valide pour l'assigné.", {
+        position: "bottom-center",
+        autoClose: 4000,
+      });
     }
   };
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const incidentsPerPage = 3;
 
   const filteredIncidents = incidents
     .filter(i => i.statutIncident !== IncidentStatus.RESOLU)
     .filter(i =>
       (!filterPriority || i.priorite === filterPriority) &&
       (!searchTerm || i.titre.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      (!filterDate || new Date(i.dateDeclaration).toISOString().slice(0, 10) === filterDate)
+      (!filterDate || i.dateDeclaration === filterDate)
     );
 
   const paginatedIncidents = filteredIncidents.slice(
@@ -85,11 +89,6 @@ const IncidentAssignment: React.FC = () => {
   );
 
   const totalPages = Math.ceil(filteredIncidents.length / incidentsPerPage);
-
-  // ✅ Appel initial à l'API
-  useEffect(() => {
-    handleFetchIncidents();
-  }, []);
 
   return (
     <div className="min-h-screen flex flex-col -ml-11">
@@ -124,7 +123,7 @@ const IncidentAssignment: React.FC = () => {
             </div>
             <div className="ml-auto flex items-center space-x-4 relative">
               <button
-              //  onClick={handleSortByPriority}
+                onClick={handleSortByPriority}
                 className="flex items-center gap-2 px-3 py-3 ml-4 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-100 text-gray-700 text-lg font-medium"
               >
                 <ArrowUpDown size={16} />
@@ -138,6 +137,7 @@ const IncidentAssignment: React.FC = () => {
                   <SlidersHorizontal size={16} />
                   Filtres
                 </button>
+
                 {showFilter && (
                   <div className="absolute right-0 mt-2 w-64 bg-white p-4 border border-gray-300 rounded-md shadow-lg z-20">
                     <label className="block mb-2 text-sm font-medium text-gray-700">Priorité</label>
@@ -169,7 +169,7 @@ const IncidentAssignment: React.FC = () => {
           <div className="ml-2 space-y-4">
             {paginatedIncidents.map((incident) => (
               <IncidentCard
-                key={incident.id.toString()}
+                key={incident.id}
                 incident={incident}
                 onAssign={() => handleAssign(incident)}
               />
@@ -197,7 +197,10 @@ const IncidentAssignment: React.FC = () => {
             </div>
           </div>
 
-          <ToastContainer />
+      
+
+          {/* ToastContainer doit être présent une seule fois dans ton app ou dans ce composant */}
+          
         </div>
       </div>
     </div>
@@ -205,24 +208,27 @@ const IncidentAssignment: React.FC = () => {
 };
 
 export default IncidentAssignment;
-import React, { useState } from "react";
+
+import React, { useState } from "react"; 
 import {
   User,
   FileText,
   CalendarDays,
   Wrench,
-  Tag,
   AlertCircle,
   Cpu,
 } from "lucide-react";
 import { IncidentCardProps } from "@/app/utils/incidentCardProps";
 import { IncidentPriority } from "@/app/utils/IncidentPriority";
 import AssignIncident from "../create-incident/AssignIncident";
+import IncidentEnCoursPopup from "../incident-en-cours/IncidentEnCoursPopup";
+import { IncidentDetail } from "@/app/models/IncidentDetail";
 
 export const IncidentCard: React.FC<IncidentCardProps> = ({ incident, onAssign }) => {
   const [showMore, setShowMore] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [answers, setAnswers] = useState<{ [key: string]: string }>({});
+  const [selectedIncident, setSelectedIncident] = useState<IncidentDetail | null>(null);
 
   const handleAnswerChange = (questionId: string, value: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
@@ -233,15 +239,18 @@ export const IncidentCard: React.FC<IncidentCardProps> = ({ incident, onAssign }
     if (onAssign) onAssign();
   };
 
-  // Fallback if incident is undefined
+  // Fallback si incident est undefined
   if (!incident) {
     return <div className="p-6 text-red-600">Incident data is missing. Please provide an incident object.</div>;
   }
 
   return (
-    <div className="border p-6 rounded-xl shadow-sm w-full bg-white mb-6 flex flex-col justify-between ml-13">
+    <div 
+      className="border p-6 rounded-xl shadow-sm w-full bg-white mb-6 flex flex-col justify-between ml-13"
+      onClick={() => setSelectedIncident(selectedIncident ? null : incident)} // toggle popup au clic sur la carte
+    >
       <div className="flex-1">
-       <h2 className="text-3xl font-semibold mb-4">
+        <h2 className="text-3xl font-semibold mb-4">
           #{incident.id.toString()} - {incident.titre}
         </h2>
 
@@ -276,13 +285,11 @@ export const IncidentCard: React.FC<IncidentCardProps> = ({ incident, onAssign }
             <User className="w-5 h-5 mr-2 text-blue-600" />
             Déclaré par : {incident.client_fullName || "Inconnu"}
           </span>
+
           <span className="flex items-center">
             <CalendarDays className="w-5 h-5 mr-2 text-green-600" />
-            {incident.dateDeclaration
-              ? incident.dateDeclaration.toLocaleDateString()
-              : "Non spécifiée"}
+            {incident.dateDeclaration || "Non spécifiée"}
           </span>
-
         </div>
 
         {/* Description */}
@@ -295,21 +302,26 @@ export const IncidentCard: React.FC<IncidentCardProps> = ({ incident, onAssign }
 
         {showMore && (
           <>
-            {incident.dateResolution&& (
+            {incident.dateResolution && (
               <div className="flex items-center text-base text-gray-600 mb-3">
                 <CalendarDays className="w-5 h-5 mr-2 text-green-600" />
-                Date de résolution : {incident.dateResolution.toLocaleDateString() || "Non spécifiée"}
+                Date de résolution : {incident.dateResolution}
               </div>
             )}
+
             <div className="flex items-center text-base text-gray-600 mb-3">
               <Wrench className="w-5 h-5 mr-2 text-orange-600" />
               Service impacté : {incident.application || "Non spécifié"}
             </div>
           </>
         )}
+
         {/* Bouton "Afficher plus / moins" */}
         <button
-          onClick={() => setShowMore(!showMore)}
+          onClick={(e) => {
+            e.stopPropagation(); // Empêche l’ouverture du popup au clic sur ce bouton
+            setShowMore(!showMore);
+          }}
           className="mt-3 text-blue-600 hover:underline text-base font-medium"
         >
           {showMore ? "Afficher moins" : "Afficher plus"}
@@ -320,41 +332,50 @@ export const IncidentCard: React.FC<IncidentCardProps> = ({ incident, onAssign }
       <div className="mt-6 flex justify-end">
         <button
           className="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 text-base"
-          onClick={() => setShowAssign(true)}
+          onClick={(e) => {
+            e.stopPropagation(); // Empêche l’ouverture du popup au clic sur ce bouton
+            setShowAssign(true);
+          }}
         >
           Affecter
         </button>
       </div>
 
       {showAssign && (
-      <>
-        {/* Overlay semi-transparent */}
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40"
-          onClick={() => setShowAssign(false)}
-        />
+        <>
+          {/* Overlay semi-transparent */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => setShowAssign(false)}
+          />
 
-    {/* Modal AssignIncident centré */}
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl p-6 relative">
-            {/* Bouton de fermeture */}
-            <button
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-              onClick={() => setShowAssign(false)}
-            >
-              ✕
-            </button>
+          {/* Modal AssignIncident centré */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl p-6 relative">
+              {/* Bouton de fermeture */}
+              <button
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowAssign(false)}
+              >
+                ✕
+              </button>
 
-            <AssignIncident
-              answers={answers}
-              onAnswerChange={handleAnswerChange}
-              onAssign={handleAssign}
-            />
+              <AssignIncident
+                answers={answers}
+                onAnswerChange={handleAnswerChange}
+                onAssign={handleAssign}
+              />
+            </div>
           </div>
-        </div>
-      </>
-)}
+        </>
+      )}
 
+      {selectedIncident && (
+        <IncidentEnCoursPopup
+          incident={selectedIncident}
+          onClose={() => setSelectedIncident(null)}
+        />
+      )}
     </div>
   );
 };
