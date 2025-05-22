@@ -2,380 +2,225 @@
 
 import React, { useState } from 'react';
 import {
-  ArrowUpDown, Download, Search, SlidersHorizontal
-} from "lucide-react";
-import HeaderBar from '../components/HeaderBar';
-import { IncidentStatus } from '@/app/utils/IncidentStatus';
-import { Incident } from '@/app/utils/Incidents';
-import { initialIncidents } from './data';
-import { IncidentCard } from './Incident-card';
-import { IncidentPriority } from '@/app/utils/IncidentPriority';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import Sidebar from '../SideBarComponent/SideBar';
-import IncidentEnCoursPopup from '../incident-en-cours/IncidentEnCoursPopup';
+  X,
+  Info,
+  Check,
+  Clock,
+  User,
+  Loader2,
+  ArrowRight,
+  AlertTriangle,
+  Cloud,
+  UserCheck,
+  Network,
+  Calendar,
+  Tag,
+  ThumbsUp,
+  MessageSquare,
+} from 'lucide-react';
+import { getStatusStyle, IncidentStatus } from '@/app/utils/IncidentStatus';
+import { getPriorityStyle, IncidentPriority } from '@/app/utils/IncidentPriority';
+
+import AttachmentsSection from './AttachementSection';
 import { IncidentDetail } from '@/app/models/IncidentDetail';
 
-const IncidentAssignment: React.FC = () => {
-  const [incidents, setIncidents] = useState<IncidentDetail []>(initialIncidents || []);
-  const [selectedIncident, setSelectedIncident] = useState<IncidentDetail| null>(null);
-  const [assignee, setAssignee] = useState<string>("");
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [showFilter, setShowFilter] = useState<boolean>(false);
-  const [filterPriority, setFilterPriority] = useState<IncidentPriority | ''>('');
-  const [filterDate, setFilterDate] = useState<string>("");
-  const [isSortedByPriority, setIsSortedByPriority] = useState<boolean>(false);
+interface Props {
+  incident: IncidentDetail;
+  onClose: () => void;
+}
 
-  // Fonction pour obtenir la valeur numérique de la priorité (pour le tri)
-  const priorityValue = (p?: IncidentPriority): number => {
-    if (p === IncidentPriority.ELEVEE) return 3;
-    if (p === IncidentPriority.MOYENNE) return 2;
-    if (p === IncidentPriority.FAIBLE) return 1;
-    return 0;
-  };
+const AvatarInitials = ({ name }: { name: string }) => {
+  const initials = name
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join('');
 
-  const handleAssign = (incident: IncidentDetail) => {
-    setSelectedIncident(incident);
-    setAssignee(incident.client_firstName || "");
-  };
-
-  const handleSortByPriority = () => {
-    const sorted = [...incidents].sort((a, b) =>
-      priorityValue(b.priorite) - priorityValue(a.priorite)
-    );
-    setIncidents(sorted);
-    setIsSortedByPriority(true);
-  };
-
-  const handleSubmitAssignment = () => {
-    if (selectedIncident && assignee.trim() !== "") {
-      setIncidents(incidents.map(inc =>
-        inc.id === selectedIncident.id ? { ...inc, assignedTo: assignee } : inc
-      ));
-      toast.success(`Incident "${selectedIncident.titre}" affecté à ${assignee} avec succès !`, {
-        position: "bottom-center",
-        autoClose: 4000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        theme: "light",
-      });
-      setSelectedIncident(null);
-      setAssignee("");
-    } else {
-      toast.error("Veuillez saisir un nom valide pour l'assigné.", {
-        position: "bottom-center",
-        autoClose: 4000,
-      });
-    }
-  };
-
-  // Pagination
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const incidentsPerPage = 3;
-
-  const filteredIncidents = incidents
-    .filter(i => i.statutIncident !== IncidentStatus.RESOLU)
-    .filter(i =>
-      (!filterPriority || i.priorite === filterPriority) &&
-      (!searchTerm || i.titre.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      (!filterDate || i.dateDeclaration === filterDate)
-    );
-
-  const paginatedIncidents = filteredIncidents.slice(
-    (currentPage - 1) * incidentsPerPage,
-    currentPage * incidentsPerPage
-  );
-
-  const totalPages = Math.ceil(filteredIncidents.length / incidentsPerPage);
+  const colors = [
+    'bg-blue-500 text-white',
+    'bg-green-500 text-white',
+    'bg-purple-600 text-white',
+    'bg-yellow-400 text-black',
+    'bg-red-500 text-white',
+    'bg-indigo-500 text-white',
+  ];
+  const colorClass = colors[name.charCodeAt(0) % colors.length];
 
   return (
-    <div className="min-h-screen flex flex-col -ml-11">
-      <HeaderBar />
-      <div className="flex flex-1">
-        <div className="w-1/5">
-          <Sidebar />
-        </div>
-        <div className="w-4/5 p-4 -ml-11">
-          <div className="flex justify-between items-center mb-6">
-            <div className="text-center w-full">
-              <h2 className="text-4xl font-bold mb-1 -pl-2">Affectation des incidents</h2>
-              <p className="text-gray-600 text-lg">Assignez les incidents aux membres de l'équipe</p>
-            </div>
-            <button className="bg-gray-200 px-4 py-2 rounded flex items-center space-x-2">
-              <Download className="w-4 h-4" />
-              <span>Exporter</span>
-            </button>
-          </div>
-
-          {/* Barre de recherche et filtres */}
-          <div className="flex space-x-4 mb-4 relative">
-            <div className="relative flex items-center w-full">
-              <Search className="absolute left-3 text-gray-500" size={20} />
-              <input
-                type="text"
-                placeholder="Rechercher un incident..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            <div className="ml-auto flex items-center space-x-4 relative">
-              <button
-                onClick={handleSortByPriority}
-                className="flex items-center gap-2 px-3 py-3 ml-4 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-100 text-gray-700 text-lg font-medium"
-              >
-                <ArrowUpDown size={16} />
-                Trier
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowFilter(!showFilter)}
-                  className="flex items-center gap-2 px-3 py-3 bg-white border border-green-600 rounded-md shadow-sm hover:bg-gray-100 text-green-600 text-lg font-medium"
-                >
-                  <SlidersHorizontal size={16} />
-                  Filtres
-                </button>
-
-                {showFilter && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white p-4 border border-gray-300 rounded-md shadow-lg z-20">
-                    <label className="block mb-2 text-sm font-medium text-gray-700">Priorité</label>
-                    <select
-                      value={filterPriority}
-                      onChange={(e) => setFilterPriority(e.target.value as IncidentPriority)}
-                      className="w-full p-2 mb-4 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Toutes</option>
-                      <option value={IncidentPriority.ELEVEE}>Élevée</option>
-                      <option value={IncidentPriority.MOYENNE}>Moyenne</option>
-                      <option value={IncidentPriority.FAIBLE}>Faible</option>
-                    </select>
-
-                    <label className="block mb-2 text-sm font-medium text-gray-700">Date de déclaration</label>
-                    <input
-                      type="date"
-                      value={filterDate}
-                      onChange={(e) => setFilterDate(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Liste des incidents */}
-          <div className="ml-2 space-y-4">
-            {paginatedIncidents.map((incident) => (
-              <IncidentCard
-                key={incident.id}
-                incident={incident}
-                onAssign={() => handleAssign(incident)}
-              />
-            ))}
-
-            {/* Pagination */}
-            <div className="flex justify-center space-x-4 mt-4">
-              <button
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
-              >
-                Précédent
-              </button>
-              <span className="px-4 py-2 text-gray-700 font-semibold">
-                Page {currentPage} sur {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
-              >
-                Suivant
-              </button>
-            </div>
-          </div>
-
-      
-
-          {/* ToastContainer doit être présent une seule fois dans ton app ou dans ce composant */}
-          
-        </div>
-      </div>
+    <div
+      className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-base font-semibold ${colorClass}`}
+      title={name}
+      aria-label={`Avatar de ${name}`}
+    >
+      {initials}
     </div>
   );
 };
 
-export default IncidentAssignment;
+const getSteps = (incident: IncidentDetail) => [
+  {
+    label: 'Création',
+    status: true,
+    icon: <Clock className="w-6 h-6 text-blue-600" />,
+    color: 'text-blue-600',
+    details: `Le ${new Date(incident.dateDeclaration)} à ${new Date(
+      incident.dateDeclaration
+    ).toLocaleTimeString()}`,
+  },
+  {
+    label: 'Affecté',
+    status: !!incident.client_fullName,
+    icon: <User className="w-6 h-6 text-orange-500" />,
+    color: 'text-orange-500',
+    details: incident.client_fullName? `Assigné à ${incident.client_firstName}` : 'Non assigné',
+  },
+  {
+    label: 'En traitement',
+    status: [
+      IncidentStatus.PRIS_EN_CHARGE,
+      IncidentStatus.RESOLU,
+      IncidentStatus.TRANSFERE,
+    ].includes(incident.statutIncident),
+    icon: <Loader2 className="w-6 h-6 text-yellow-500 animate-spin" />,
+    color: 'text-yellow-500',
+    details:
+      incident.statutIncident === IncidentStatus.PRIS_EN_CHARGE
+        ? "L'incident est en cours d'analyse."
+        : incident.statutIncident === IncidentStatus.RESOLU
+        ? "L'incident a été traité et est en cours de clôture."
+        : incident.statutIncident === IncidentStatus.TRANSFERE
+        ? "L'incident a été transmis à une autre équipe."
+        : 'En attente de traitement.',
+  },
+  
+];
 
-import React, { useState } from "react"; 
-import {
-  User,
-  FileText,
-  CalendarDays,
-  Wrench,
-  AlertCircle,
-  Cpu,
-} from "lucide-react";
-import { IncidentCardProps } from "@/app/utils/incidentCardProps";
-import { IncidentPriority } from "@/app/utils/IncidentPriority";
-import AssignIncident from "../create-incident/AssignIncident";
-import IncidentEnCoursPopup from "../incident-en-cours/IncidentEnCoursPopup";
-import { IncidentDetail } from "@/app/models/IncidentDetail";
-
-export const IncidentCard: React.FC<IncidentCardProps> = ({ incident, onAssign }) => {
-  const [showMore, setShowMore] = useState(false);
-  const [showAssign, setShowAssign] = useState(false);
-  const [answers, setAnswers] = useState<{ [key: string]: string }>({});
-  const [selectedIncident, setSelectedIncident] = useState<IncidentDetail | null>(null);
-
-  const handleAnswerChange = (questionId: string, value: string) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: value }));
-  };
-
-  const handleAssign = () => {
-    setShowAssign(false);
-    if (onAssign) onAssign();
-  };
-
-  // Fallback si incident est undefined
-  if (!incident) {
-    return <div className="p-6 text-red-600">Incident data is missing. Please provide an incident object.</div>;
-  }
+const IncidentEnCoursPopup = ({ incident, onClose }: Props) => {
+  const steps = getSteps(incident);
+  const [activeTab, setActiveTab] = useState('comments');
 
   return (
-    <div 
-      className="border p-6 rounded-xl shadow-sm w-full bg-white mb-6 flex flex-col justify-between ml-13"
-      onClick={() => setSelectedIncident(selectedIncident ? null : incident)} // toggle popup au clic sur la carte
-    >
-      <div className="flex-1">
-        <h2 className="text-3xl font-semibold mb-4">
-          #{incident.id.toString()} - {incident.titre}
-        </h2>
+    <div className="fixed inset-0 flex items-center justify-end bg-black bg-opacity-50 p-4 z-50">
+     <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden p-6 relative">
+    {/* HEADER */}
+    <div className="flex justify-between items-start mb-4">
+      <h2 className="text-2xl font-semibold text-gray-800 flex items-center gap-3 break-words">
+        <Info className="text-blue-600 w-7 h-7" />
+        Détails de l’incident
+      </h2>
+      <button
+        className="text-gray-400 hover:text-gray-600 transition-colors"
+        onClick={onClose}
+        aria-label="Fermer la fenêtre"
+      >
+        <X className="w-7 h-7" />
+      </button>
+    </div>
 
-        {/* Environnement, déclaré par, date de déclaration, priorité */}
-        <div className="flex items-center text-base text-gray-600 mb-4 space-x-4">
-          {incident.priorite && (
-            <span className="flex items-center">
-              <AlertCircle className="w-5 h-5 mr-2 text-red-600" />
-              <span className="font-medium mr-2">Priorité :</span>
-              <span
-                className={`px-3 py-1 rounded-full text-sm ${
-                  incident.priorite === IncidentPriority.ELEVEE
-                    ? "bg-red-100 text-red-700"
-                    : incident.priorite === IncidentPriority.MOYENNE
-                    ? "bg-yellow-100 text-yellow-700"
-                    : "bg-green-100 text-green-700"
-                }`}
-              >
-                {incident.priorite}
-              </span>
+    {/* TITRE INCIDENT */}
+    <div className="mb-6">
+      <h3 className="text-xl font-semibold text-gray-800 flex flex-wrap items-center gap-3 break-words">
+        <span className="break-words max-w-full">{incident.titre}</span>
+        {incident.priorite && (
+          <span
+            className={`inline-flex items-end px-3 py-1 rounded-full text-base font-medium ${getPriorityStyle(
+              incident.priorite
+            )}`}
+          >
+            {incident.priorite}
+          </span>
+        )}
+      </h3>
+    </div>
+
+
+        <div className="grid grid-cols-2 gap-4 text-base text-gray-700 mb-6">
+          <div className="flex items-center gap-2">
+            <Info className="w-6 h-6 text-blue-600" />
+            <strong className="font-semibold">Status :</strong>{' '}
+            <span className={`${getStatusStyle(incident.statutIncident)} font-semibold rounded-full px-3`}>
+              {incident.statutIncident}
             </span>
-          )}
-
-          {incident.environnement && (
-            <span className="flex items-center">
-              <Cpu className="w-5 h-5 mr-2 text-purple-600" />
-              {incident.environnement}
-            </span>
-          )}
-
-          <span className="flex items-center">
-            <User className="w-5 h-5 mr-2 text-blue-600" />
-            Déclaré par : {incident.client_fullName || "Inconnu"}
-          </span>
-
-          <span className="flex items-center">
-            <CalendarDays className="w-5 h-5 mr-2 text-green-600" />
-            {incident.dateDeclaration || "Non spécifiée"}
-          </span>
-        </div>
-
-        {/* Description */}
-        <div className="flex items-start text-base text-gray-600 mb-4">
-          <FileText className="w-5 h-5 mr-2 mt-1 text-gray-700" />
-          <span className="flex-1">
-            Description : {incident.description || "Aucune description fournie"}
-          </span>
-        </div>
-
-        {showMore && (
-          <>
-            {incident.dateResolution && (
-              <div className="flex items-center text-base text-gray-600 mb-3">
-                <CalendarDays className="w-5 h-5 mr-2 text-green-600" />
-                Date de résolution : {incident.dateResolution}
-              </div>
-            )}
-
-            <div className="flex items-center text-base text-gray-600 mb-3">
-              <Wrench className="w-5 h-5 mr-2 text-orange-600" />
-              Service impacté : {incident.application || "Non spécifié"}
+          </div>
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-6 h-6 text-red-600" />
+            <strong className="font-semibold">Gravité :</strong> {incident.gravite || 'Non spécifiée'}
+          </div>
+          <div className="flex items-center gap-2">
+            <Cloud className="w-6 h-6 text-cyan-600" />
+            <strong className="font-semibold">Environnement :</strong> {incident.environnement|| 'Non précisé'}
+          </div>
+          <div className="flex items-center gap-2">
+            <Network className="w-6 h-6 text-green-600" />
+            <strong className="font-semibold">Service impacté :</strong> {incident.application}
+          </div>
+          <div className="flex items-center gap-2">
+            <UserCheck className="w-6 h-6 text-purple-600" />
+            <strong className="font-semibold">Déclaré par :</strong>{' '}
+            {incident.clientSub ? <AvatarInitials name={incident.client_fullName} /> : 'Inconnu'}
+            <span>{incident.client_fullName}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <User className="w-6 h-6 text-orange-500" />
+            <strong className="font-semibold">Assigné à :</strong>{' '}
+            {incident.coeDev_fullName ? <AvatarInitials name={incident.coeDev_firstName} /> : 'Non assigné'}
+            <span>{incident.coeDev_fullName}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-6 h-6 text-blue-600" />
+            <strong className="font-semibold">Date de déclaration :</strong>{' '}
+            {new Date(incident.dateDeclaration).toLocaleString()}
+          </div>
+          {incident.dateResolution && (
+            <div className="flex items-center gap-2">
+              <Check className="w-6 h-6 text-green-600" />
+              <strong className="font-semibold">Date de résolution :</strong>{' '}
+              {new Date(incident.dateResolution).toLocaleString()}
             </div>
-          </>
+          )}
+        </div>
+
+       
+
+        {incident.description && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Info className="w-6 h-6 text-blue-600" />
+              <strong className="text-base font-semibold text-gray-800">Description :</strong>
+            </div>
+            <p className="text-lg text-gray-600 p-4 rounded-lg bg-gray-50">{incident.description}</p>
+          </div>
         )}
 
-        {/* Bouton "Afficher plus / moins" */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation(); // Empêche l’ouverture du popup au clic sur ce bouton
-            setShowMore(!showMore);
-          }}
-          className="mt-3 text-blue-600 hover:underline text-base font-medium"
-        >
-          {showMore ? "Afficher moins" : "Afficher plus"}
-        </button>
-      </div>
-
-      {/* Bouton "Affecter" en rouge */}
-      <div className="mt-6 flex justify-end">
-        <button
-          className="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 text-base"
-          onClick={(e) => {
-            e.stopPropagation(); // Empêche l’ouverture du popup au clic sur ce bouton
-            setShowAssign(true);
-          }}
-        >
-          Affecter
-        </button>
-      </div>
-
-      {showAssign && (
-        <>
-          {/* Overlay semi-transparent */}
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40"
-            onClick={() => setShowAssign(false)}
-          />
-
-          {/* Modal AssignIncident centré */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl p-6 relative">
-              {/* Bouton de fermeture */}
-              <button
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-                onClick={() => setShowAssign(false)}
-              >
-                ✕
-              </button>
-
-              <AssignIncident
-                answers={answers}
-                onAnswerChange={handleAnswerChange}
-                onAssign={handleAssign}
-              />
-            </div>
+        <div className="mb-6">
+          <div className="flex border-b border-gray-200">
+               <button
+              className={`px-4 py-2 text-base font-medium ${
+                activeTab === 'historique'
+                  ? 'border-b-2 border-blue-600 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+              onClick={() => setActiveTab('historique')}
+            >
+              Activités
+            </button>
+          
           </div>
-        </>
-      )}
 
-      {selectedIncident && (
-        <IncidentEnCoursPopup
-          incident={selectedIncident}
-          onClose={() => setSelectedIncident(null)}
-        />
-      )}
+         
+        </div>
+
+        <div className="text-center mt-6">
+          <button
+            className="bg-blue-600 hover:bg-blue-700 text-white text-base px-6 py-2 rounded-lg font-semibold transition-colors"
+            onClick={onClose}
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
+
+export default IncidentEnCoursPopup;
