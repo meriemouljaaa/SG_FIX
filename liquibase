@@ -1,1 +1,2 @@
-List<IncidentEntity> findIncidentsByClientIgg(@Param("igg") String igg);
+@Query("SELECT i FROM IncidentEntity i WHERE i.Client.igg = :igg")
+    List<IncidentEntity> findIncidentsByClientIgg(@Param("igg") String igg);
