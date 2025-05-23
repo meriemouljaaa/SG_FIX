@@ -1,2 +1,8 @@
 @Query("SELECT i FROM IncidentEntity i WHERE i.Client.igg = :igg")
     List<IncidentEntity> findIncidentsByClientIgg(@Param("igg") String igg);
+blic List<IncidentEntity> findIncidentsByClientIgg(String igg) {
+        if (igg == null || igg.trim().isEmpty()) {
+            throw new IllegalArgumentException("IGG cannot be null or empty");
+        }
+        return incidentRepository.findIncidentsByClientIgg(igg);
+    }
