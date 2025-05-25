@@ -30,6 +30,13 @@ export default function IncidentStatutBoard({ igg }: { igg: string }) {
     [IncidentStatus.RESOLU]: "RESOLU",
   };
 
+  // Mapping of ColumnType to IncidentStatus
+  const columnToStatusMap: Record<ColumnType, IncidentStatus> = {
+    "Affecté à moi": IncidentStatus.AFFECTE,
+    "En cours de traitement": IncidentStatus.PRIS_EN_CHARGE,
+    "Résolu": IncidentStatus.RESOLU,
+  };
+
   const organizeIncidentsByStatus = (incidents: IncidentDetail[]): Record<ColumnType, IncidentDetail[]> => {
     return incidents.reduce(
       (acc, incident) => {
@@ -82,17 +89,13 @@ export default function IncidentStatutBoard({ igg }: { igg: string }) {
           IncidentStatus.RESOLU,
         ];
         const fetchPromises = statuses.map(async (statut) => {
-          // Map IncidentStatus to backend-compatible status
           const backendStatus = statusToBackendMap[statut];
           const data = await IncidentService.findAffectedIncidents(iggValue, backendStatus);
           return data;
         });
 
-        // Wait for all fetch requests to complete
         const results = await Promise.all(fetchPromises);
-        const allIncidents: IncidentDetail[] = results.flat(); // Combine all incidents
-
-        // Organize incidents by status
+        const allIncidents: IncidentDetail[] = results.flat();
         const organizedIncidents = organizeIncidentsByStatus(allIncidents);
         setColumns(organizedIncidents);
       } catch (err) {
@@ -109,7 +112,7 @@ export default function IncidentStatutBoard({ igg }: { igg: string }) {
       setError("IGG non fourni.");
       setLoading(false);
     }
-  }, [igg]); // Re-fetch if igg changes
+  }, [igg]);
 
   const getColumnIcon = (col: ColumnType) => {
     switch (col) {
@@ -140,69 +143,42 @@ export default function IncidentStatutBoard({ igg }: { igg: string }) {
       return;
     }
 
-    // Handle dragging from "Affecté à moi" to "En cours de traitement"
-    if (source.droppableId === "Affecté à moi" && destination.droppableId === "En cours de traitement") {
-      const sourceColumn = columns["Affecté à moi"];
-      const destColumn = columns["En cours de traitement"];
-      const draggedIncident = sourceColumn[source.index];
+    const sourceCol = source.droppableId as ColumnType;
+    const destCol = destination.droppableId as ColumnType;
+    const sourceColumn = columns[sourceCol];
+    const destColumn = columns[destCol];
+    const draggedIncident = sourceColumn[source.index];
 
-      // Update the incident's status
-      const updatedIncident = { ...draggedIncident, statutIncident: IncidentStatus.PRIS_EN_CHARGE };
+    // Map ColumnType to IncidentStatus for the new status
+    const newStatus = columnToStatusMap[destCol];
 
-      // Remove from source and add to destination
-      const newSourceColumn = [...sourceColumn];
-      newSourceColumn.splice(source.index, 1);
-      const newDestColumn = [...destColumn];
-      newDestColumn.splice(destination.index, 0, updatedIncident);
+    // Update the incident's status
+    const updatedIncident = { ...draggedIncident, statutIncident: newStatus };
 
-      // Update state
-      setColumns({
-        ...columns,
-        "Affecté à moi": newSourceColumn,
-        "En cours de traitement": newDestColumn,
-      });
+    // Remove from source and add to destination
+    const newSourceColumn = [...sourceColumn];
+    newSourceColumn.splice(source.index, 1);
+    const newDestColumn = [...destColumn];
+    newDestColumn.splice(destination.index, 0, updatedIncident);
 
-      // Update the backend
-      updateIncidentStatus(updatedIncident.id, IncidentStatus.PRIS_EN_CHARGE);
-    }
-    // Handle dragging from "En cours de traitement" to "Résolu"
-    else if (source.droppableId === "En cours de traitement" && destination.droppableId === "Résolu") {
-      const sourceColumn = columns["En cours de traitement"];
-      const destColumn = columns["Résolu"];
-      const draggedIncident = sourceColumn[source.index];
+    // Update state
+    setColumns({
+      ...columns,
+      [sourceCol]: newSourceColumn,
+      [destCol]: newDestColumn,
+    });
 
-      // Update the incident's status
-      const updatedIncident = { ...draggedIncident, statutIncident: IncidentStatus.RESOLU };
-
-      // Remove from source and add to destination
-      const newSourceColumn = [...sourceColumn];
-      newSourceColumn.splice(source.index, 1);
-      const newDestColumn = [...destColumn];
-      newDestColumn.splice(destination.index, 0, updatedIncident);
-
-      // Update state
-      setColumns({
-        ...columns,
-        "En cours de traitement": newSourceColumn,
-        "Résolu": newDestColumn,
-      });
-
-      // Update the backend
-      updateIncidentStatus(updatedIncident.id, IncidentStatus.RESOLU);
-    }
+    // Update the backend
+    updateIncidentStatus(updatedIncident.id, newStatus);
   };
 
-  // Function to update incident status in the backend
   const updateIncidentStatus = async (incidentId: number, newStatus: IncidentStatus) => {
     try {
-      // Map IncidentStatus to backend-compatible status
       const backendStatus = statusToBackendMap[newStatus];
       const response = await fetch(`http://localhost:8082/incidents/${incidentId}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          // Add authentication headers if required
-          // Authorization: `Bearer ${yourToken}`,
         },
         body: JSON.stringify({ statut: backendStatus }),
       });
@@ -223,10 +199,8 @@ export default function IncidentStatutBoard({ igg }: { igg: string }) {
         <h1 className="text-4xl font-bold text-center text-gray-800 mb-6 pt-10">
           Historique des incidents
         </h1>
-        {/* Loading and Error States */}
         {loading && <p className="text-center text-gray-600">Chargement des incidents...</p>}
         {error && <p className="text-center text-red-600">{error}</p>}
-        {/* Navigation Tabs */}
         {!loading && !error && (
           <>
             <div className="flex justify-center items-center gap-6 px-10 border-b border-gray-300 mb-6">
@@ -256,7 +230,6 @@ export default function IncidentStatutBoard({ igg }: { igg: string }) {
               ))}
             </div>
 
-            {/* Board View with Drag and Drop */}
             {activeView === "Board" && (
               <DragDropContext onDragEnd={onDragEnd}>
                 <div className="flex justify-center gap-6 overflow-x-auto pb-9 px-4">
@@ -338,7 +311,6 @@ export default function IncidentStatutBoard({ igg }: { igg: string }) {
               </DragDropContext>
             )}
 
-            {/* List View */}
             {activeView === "List" && (
               <div className="px-12 py-6 overflow-x-auto ml-20">
                 <table className="min-w-full bg-white shadow-md rounded-xl overflow-hidden border">
