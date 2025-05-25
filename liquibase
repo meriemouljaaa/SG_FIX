@@ -12,13 +12,13 @@ import {
   LayoutGrid,
   List,
   Table,
-  SlidersHorizontal,
 } from "lucide-react";
 import { IncidentDetail } from "@/app/models/IncidentDetail";
 import { IncidentStatus } from "@/app/utils/IncidentStatus";
 import { IncidentPriority } from "@/app/utils/IncidentPriority";
 import Sidebar from "../SideBarComponent/SideBar";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
+import { IncidentService } from "@/app/service/IncidentService";
 
 export type ColumnType = "Affecté à moi" | "En cours de traitement" | "Résolu";
 
@@ -63,32 +63,20 @@ export default function IncidentStatutBoard({ igg }: { igg: string }) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch incidents from the backend
+  // Fetch incidents from the backend using IncidentService
   useEffect(() => {
-    const fetchIncidents = async () => {
+    const fetchIncidents = async (iggValue: string) => {
       setLoading(true);
       setError(null);
       try {
-        // Fetch incidents for all relevant statuses
         const statuses = [
           IncidentStatus.AFFECTE,
           IncidentStatus.PRIS_EN_CHARGE,
           IncidentStatus.RESOLU,
         ];
         const fetchPromises = statuses.map(async (statut) => {
-          const response = await fetch(
-            `http://localhost:8082/incidents/client/${igg}/${statut}`,
-            {
-              headers: {
-                // Add authentication headers if required, e.g.:
-                // Authorization: `Bearer ${yourToken}`,
-              },
-            }
-          );
-          if (!response.ok) {
-            throw new Error(`Failed to fetch incidents for status ${statut}`);
-          }
-          return response.json();
+          const data = await IncidentService.findAffectedIncidents(iggValue, statut);
+          return data;
         });
 
         // Wait for all fetch requests to complete
@@ -107,7 +95,10 @@ export default function IncidentStatutBoard({ igg }: { igg: string }) {
     };
 
     if (igg) {
-      fetchIncidents();
+      fetchIncidents(igg);
+    } else {
+      setError("IGG non fourni.");
+      setLoading(false);
     }
   }, [igg]); // Re-fetch if igg changes
 
@@ -162,8 +153,6 @@ export default function IncidentStatutBoard({ igg }: { igg: string }) {
         "En cours de traitement": newDestColumn,
       });
 
-      // Optionally, update the backend
-      updateIncidentStatus(updatedIncident.id, IncidentStatus.PRIS_EN_CHARGE);
     }
     // Handle dragging from "En cours de traitement" to "Résolu"
     else if (source.droppableId === "En cours de traitement" && destination.droppableId === "Résolu") {
@@ -186,31 +175,6 @@ export default function IncidentStatutBoard({ igg }: { igg: string }) {
         "En cours de traitement": newSourceColumn,
         "Résolu": newDestColumn,
       });
-
-      // Optionally, update the backend
-      updateIncidentStatus(updatedIncident.id, IncidentStatus.RESOLU);
-    }
-  };
-
-  // Function to update incident status in the backend
-  const updateIncidentStatus = async (incidentId: number, newStatus: IncidentStatus) => {
-    try {
-      const response = await fetch(`http://localhost:8082/incidents/${incidentId}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          // Add authentication headers if required
-          // Authorization: `Bearer ${yourToken}`,
-        },
-        body: JSON.stringify({ statut: newStatus }),
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to update incident ${incidentId} status`);
-      }
-    } catch (err) {
-      console.error("Error updating incident status:", err);
-      // Optionally, revert the UI change or show an error
-      setError("Erreur lors de la mise à jour du statut de l'incident.");
     }
   };
 
