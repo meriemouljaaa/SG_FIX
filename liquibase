@@ -18,11 +18,18 @@ import { IncidentStatus } from "@/app/utils/IncidentStatus";
 import { IncidentPriority } from "@/app/utils/IncidentPriority";
 import Sidebar from "../SideBarComponent/SideBar";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
-import { IncidentService } from "@/app/service/IncidentService";
+import IncidentService from "@/app/services/IncidentService"; // Adjust the import path as needed
 
 export type ColumnType = "Affecté à moi" | "En cours de traitement" | "Résolu";
 
 export default function IncidentStatutBoard({ igg }: { igg: string }) {
+  // Mapping of IncidentStatus to backend status values
+  const statusToBackendMap: Record<IncidentStatus, string> = {
+    [IncidentStatus.AFFECTE]: "AFFECTE",
+    [IncidentStatus.PRIS_EN_CHARGE]: "PRIS_EN_CHARGE",
+    [IncidentStatus.RESOLU]: "RESOLU",
+  };
+
   const organizeIncidentsByStatus = (incidents: IncidentDetail[]): Record<ColumnType, IncidentDetail[]> => {
     return incidents.reduce(
       (acc, incident) => {
@@ -75,7 +82,9 @@ export default function IncidentStatutBoard({ igg }: { igg: string }) {
           IncidentStatus.RESOLU,
         ];
         const fetchPromises = statuses.map(async (statut) => {
-          const data = await IncidentService.findAffectedIncidents(iggValue, statut);
+          // Map IncidentStatus to backend-compatible status
+          const backendStatus = statusToBackendMap[statut];
+          const data = await IncidentService.findAffectedIncidents(iggValue, backendStatus);
           return data;
         });
 
@@ -153,6 +162,8 @@ export default function IncidentStatutBoard({ igg }: { igg: string }) {
         "En cours de traitement": newDestColumn,
       });
 
+      // Update the backend
+      updateIncidentStatus(updatedIncident.id, IncidentStatus.PRIS_EN_CHARGE);
     }
     // Handle dragging from "En cours de traitement" to "Résolu"
     else if (source.droppableId === "En cours de traitement" && destination.droppableId === "Résolu") {
@@ -175,6 +186,32 @@ export default function IncidentStatutBoard({ igg }: { igg: string }) {
         "En cours de traitement": newSourceColumn,
         "Résolu": newDestColumn,
       });
+
+      // Update the backend
+      updateIncidentStatus(updatedIncident.id, IncidentStatus.RESOLU);
+    }
+  };
+
+  // Function to update incident status in the backend
+  const updateIncidentStatus = async (incidentId: number, newStatus: IncidentStatus) => {
+    try {
+      // Map IncidentStatus to backend-compatible status
+      const backendStatus = statusToBackendMap[newStatus];
+      const response = await fetch(`http://localhost:8082/incidents/${incidentId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          // Add authentication headers if required
+          // Authorization: `Bearer ${yourToken}`,
+        },
+        body: JSON.stringify({ statut: backendStatus }),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to update incident ${incidentId} status`);
+      }
+    } catch (err) {
+      console.error("Error updating incident status:", err);
+      setError("Erreur lors de la mise à jour du statut de l'incident.");
     }
   };
 
