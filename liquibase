@@ -1,111 +1,51 @@
-"use client";
+export default function IncidentDetailPage() {
+  const params = useParams(); // ✅ params est un objet { id: string }
 
-import { useState, useRef, useEffect } from "react";
-import { Avatar } from "@mui/material";
-import { FaFileAlt, FaTimes, FaSyncAlt, FaCheckCircle, FaClock, FaArrowRight, FaPauseCircle } from "react-icons/fa";
-import { motion, AnimatePresence } from "framer-motion";
-import toast from "react-hot-toast";
-import HeaderBar from "../../components/HeaderBar";
-import Sidebar from "../../SideBarComponent/SideBar";
-import { getStatusStyle, IncidentStatus } from "@/app/utils/IncidentStatus";
-import { getPriorityStyle } from "@/app/utils/IncidentPriority";
-import { getGravityStyle } from "@/app/utils/IncidentGravity";
-import { IncidentDetail } from "@/app/models/IncidentDetail";
+  const id = params['id']; // ou `const { id } = params` si tu es sûr du nom
 
-// Define interfaces
-interface DocumentationFormData {
-  documentationTitle: string;
-  documentationDate: string;
-  rootCause: string;
-  actionsTaken: string;
-  resolutionSteps: string;
-  preventiveMeasures?: string;
-  submittedBy: { name: string; email: string };
-}
-
-interface DocumentationEntry {
-  id: string;
-  formData: DocumentationFormData;
-  createdAt: string;
-}
-
-// Status options
-const STATUSES = [
-  { value: "TRANSFÉRÉ", label: "Transféré", icon: <FaArrowRight className="mr-2" /> },
-  { value: "RÉSOLU", label: "Résolu", icon: <FaCheckCircle className="mr-2" /> },
-  { value: "EN ATTENTE", label: "En attente", icon: <FaPauseCircle className="mr-2" /> },
-];
-
-const COLORS = {
-  border: "#E5E7EB",
-  brand: "#3B82F6",
-  dusk: "#4A90E2",
-};
-
-// Props interface for the component, updated for Next.js dynamic route
-interface DetailedIncidentInfoProps {
-  params: {
-    id: string; // ID comes from the dynamic route parameter
-  };
-}
-
-// Function to fetch incident data from backend service
-const fetchIncidentById = async (id: string): Promise<IncidentDetail | null> => {
-  try {
-    const response = await fetch(`/api/incidents/${id}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error(`Incident avec l'ID ${id} non trouvé`);
-      }
-      throw new Error(`Erreur du serveur: ${response.status} ${response.statusText}`);
-    }
-
-    const data: IncidentDetail = await response.json();
-    // Convert id to BigInt if necessary (assuming backend returns it as a string)
-    return { ...data, id: BigInt(data.id) };
-  } catch (error) {
-    console.error("Erreur lors de la récupération de l'incident:", error);
-    toast.error(
-      error instanceof Error ? error.message : "Erreur lors de la récupération des données de l'incident",
-      { duration: 3000 }
-    );
-    return null;
-  }
-};
-
-export default function DetailedIncidentInfo({ params }: DetailedIncidentInfoProps) {
-  const [activeTab, setActiveTab] = useState("details");
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [incident, setIncident] = useState<IncidentDetail | null>(null);
-  const [isLoadingIncident, setIsLoadingIncident] = useState(true);
-  const [docFormData, setDocFormData] = useState<DocumentationFormData>({
-    documentationTitle: "",
-    documentationDate: new Date().toISOString().split("T")[0],
-    rootCause: "",
-    actionsTaken: "",
-    resolutionSteps: "",
-    preventiveMeasures: "",
-    submittedBy: { name: "", email: "" },
+  const [status, setStatus] = useState('');
+  const [isLoadingIncident, setIsLoadingIncident] = useState(false);
+  const [docFormData, setDocFormData] = useState({
+    submittedBy: { name: '', email: '' },
   });
-  const [isStatusPopoverOpen, setIsStatusPopoverOpen] = useState(false);
-  const [status, setStatus] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Log the ID to the console
+  const fetchIncidentById = async (id: string): Promise<IncidentDetail | null> => {
+    try {
+      const response = await fetch(`/api/incidents/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(`Incident avec l'ID ${id} non trouvé`);
+        }
+        throw new Error(`Erreur du serveur: ${response.status} ${response.statusText}`);
+      }
+
+      const data: IncidentDetail = await response.json();
+      return { ...data, id: BigInt(data.id) };
+    } catch (error) {
+      console.error('Erreur lors de la récupération de l\'incident:', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Erreur lors de la récupération des données de l\'incident',
+        { duration: 3000 }
+      );
+      return null;
+    }
+  };
+
   useEffect(() => {
-    console.log("ID récupéré depuis l'URL :", params.id);
-    
+    if (!id) return;
+
+    console.log('ID récupéré depuis l\'URL :', id);
+
     const loadIncident = async () => {
       setIsLoadingIncident(true);
-      const fetchedIncident = await fetchIncidentById(params.id);
+      const fetchedIncident = await fetchIncidentById(id);
       if (fetchedIncident) {
         setIncident(fetchedIncident);
         setStatus(fetchedIncident.statutIncident);
@@ -117,513 +57,17 @@ export default function DetailedIncidentInfo({ params }: DetailedIncidentInfoPro
           },
         }));
       } else {
-        toast.error("Incident non trouvé", { duration: 3000 });
+        toast.error('Incident non trouvé', { duration: 3000 });
       }
       setIsLoadingIncident(false);
     };
+
     loadIncident();
-  }, [params.id]);
-
-  const getInitials = (name: string) => {
-    const parts = name.split(" ");
-    return parts[0][0] + (parts[1] ? parts[1][0] : "");
-  };
-
-  const handleDocFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setDocFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSave = () => {
-    if (
-      !docFormData.documentationTitle ||
-      !docFormData.documentationDate ||
-      !docFormData.rootCause ||
-      !docFormData.actionsTaken ||
-      !docFormData.resolutionSteps
-    ) {
-      alert("Veuillez remplir tous les champs obligatoires.");
-      return;
-    }
-
-    const newDocumentation: DocumentationEntry = {
-      id: `doc-${Date.now()}`,
-      formData: { ...docFormData },
-      createdAt: new Date().toISOString(),
-    };
-
-    console.log("Documentation Entry:", newDocumentation);
-    setIsPopupOpen(false);
-    setDocFormData({
-      documentationTitle: "",
-      documentationDate: new Date().toISOString().split("T")[0],
-      rootCause: "",
-      actionsTaken: "",
-      resolutionSteps: "",
-      preventiveMeasures: "",
-      submittedBy: incident ? { name: incident.client_fullName, email: incident.client_mail } : { name: "", email: "" },
-    });
-  };
-
-  const handleCancel = () => {
-    setIsPopupOpen(false);
-    setDocFormData({
-      documentationTitle: "",
-      documentationDate: new Date().toISOString().split("T")[0],
-      rootCause: "",
-      actionsTaken: "",
-      resolutionSteps: "",
-      preventiveMeasures: "",
-      submittedBy: incident ? { name: incident.client_fullName, email: incident.client_mail } : { name: "", email: "" },
-    });
-  };
-
-  const handleStatusSelect = (newStatus: string) => {
-    setPendingStatus(newStatus);
-  };
-
-  const confirmStatusUpdate = async () => {
-    if (!pendingStatus) return;
-
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setStatus(pendingStatus);
-      toast.success(`Statut mis à jour à "${pendingStatus}"`, { duration: 3000 });
-      setIsStatusPopoverOpen(false);
-      setPendingStatus(null);
-    } catch (error) {
-      toast.error("Erreur lors de la mise à jour du statut", { duration: 3000 });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const cancelStatusUpdate = () => {
-    setPendingStatus(null);
-  };
-
-  if (isLoadingIncident) {
-    return (
-      <div className="flex min-h-screen bg-gray-100 text-base">
-        <Sidebar />
-        <div className="flex-1 flex flex-col">
-          <HeaderBar />
-          <div className="flex-1 p-8 ml-64 text-center">
-            <p className="text-gray-700">Chargement des détails de l'incident...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!incident) {
-    return (
-      <div className="flex min-h-screen bg-gray-100 text-base">
-        <Sidebar />
-        <div className="flex-1 flex flex-col">
-          <HeaderBar />
-          <div className="flex-1 p-8 ml-64 text-center">
-            <p className="text-red-600">Aucun incident trouvé pour l'ID {params.id}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  }, [id]);
 
   return (
-    <div className="flex min-h-screen bg-gray-100 text-base">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <HeaderBar />
-        <div className="relative text-center -mt-8 mb-6 px-4">
-          <h1 className="text-2xl font-bold text-gray-800 leading-snug mt-10">
-            Gestion détaillée de l’incident
-          </h1>
-        </div>
-
-        <div className="flex-1 p-8 ml-64">
-          <div className="w-full ml-4">
-            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-              <div className="flex justify-between items-start flex-wrap gap-4">
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-3xl font-semibold text-gray-900 mb-2">{incident.titre}</h1>
-                  <p className="text-base text-gray-500">
-                    ID : {incident.id.toString()} – Créé le {new Date(incident.dateDeclaration).toLocaleDateString()}
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <div>
-                      <span className="font-semibold text-sm text-gray-700">Statut :</span>
-                      <span
-                        className={`ml-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusStyle(incident.statutIncident)}`}
-                      >
-                        {status}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-sm text-gray-700">Priorité :</span>
-                      <span
-                        className={`ml-2 px-3 py-1 rounded-full text-sm font-medium ${getPriorityStyle(incident.priorite)}`}
-                      >
-                        {incident.priorite}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-sm text-gray-700">Gravité :</span>
-                      <span
-                        className={`ml-2 px-3 py-1 rounded-full text-sm font-medium ${getGravityStyle(incident.gravite)}`}
-                      >
-                        {incident.gravite}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-sm text-gray-700">Environnement :</span>
-                      <span
-                        className="ml-2 px-3 py-1 rounded-lg text-sm font-medium bg-gray-100 text-gray-600"
-                      >
-                        {incident.environnement}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="ml-2 flex items-center gap-2 text-sm">
-                        <div className="relative group">
-                          <Avatar sx={{ bgcolor: COLORS.dusk, width: 28, height: 28, fontSize: 12 }}>
-                            {getInitials(incident.client_fullName)}
-                          </Avatar>
-                          <span
-                            className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-20 transition"
-                            style={{ backgroundColor: COLORS.dusk }}
-                          />
-                        </div>
-                        <a
-                          href={`mailto:${incident.client_mail}`}
-                          className="font-medium text-blue-600 hover:underline"
-                        >
-                          {incident.client_fullName}
-                        </a>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 sm:flex-row flex-col">
-                  <div className="relative">
-                    <button
-                      ref={buttonRef}
-                      className="px-3 py-1.5 bg-gradient-to-r from-gray-600 to-gray-500 text-white rounded-lg hover:from-gray-700 hover:to-gray-600 flex items-center justify-center flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-gray-500 transition text-sm"
-                      onClick={() => setIsStatusPopoverOpen(!isStatusPopoverOpen)}
-                      disabled={isLoading}
-                      aria-haspopup="true"
-                      aria-expanded={isStatusPopoverOpen}
-                    >
-                      {isLoading ? (
-                        <svg className="animate-spin h-4 w-4 mr-1 text-white" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                        </svg>
-                      ) : (
-                        <FaSyncAlt className="mr-1" />
-                      )}
-                      Statut
-                    </button>
-                    <AnimatePresence>
-                      {isStatusPopoverOpen && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          transition={{ duration: 0.2 }}
-                          className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50"
-                          role="menu"
-                        >
-                          {pendingStatus ? (
-                            <div className="p-4">
-                              <p className="text-sm text-gray-700 mb-4">
-                                Confirmer le changement de statut à <strong>{pendingStatus}</strong> ?
-                              </p>
-                              <div className="flex justify-end gap-2">
-                                <button
-                                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
-                                  onClick={cancelStatusUpdate}
-                                  disabled={isLoading}
-                                >
-                                  Annuler
-                                </button>
-                                <button
-                                  className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                                  onClick={confirmStatusUpdate}
-                                  disabled={isLoading}
-                                >
-                                  Confirmer
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <ul className="py-1" role="none">
-                              {STATUSES.map(({ value, label, icon }) => (
-                                <li key={value}>
-                                  <button
-                                    className={`w-full text-left px-4 py-2 text-sm flex items-center ${
-                                      status === value
-                                        ? "bg-blue-100 text-blue-700 font-semibold"
-                                        : "text-gray-700 hover:bg-gray-100"
-                                    }`}
-                                    onClick={() => handleStatusSelect(value)}
-                                    disabled={status === value}
-                                    role="menuitem"
-                                  >
-                                    {icon}
-                                    {label}
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                  <button
-                    className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center flex-shrink-0 text-sm"
-                    onClick={() => setIsPopupOpen(true)}
-                  >
-                    <FaFileAlt className="mr-1" />
-                    Ajouter Documentation
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex mt-4 border-b border-gray-200">
-              {["details", "timeline", "fichiers", "autres"].map((tab) => (
-                <button
-                  key={tab}
-                  className={`px-4 py-2 text-base font-medium text-gray-600 border-b-2 ${
-                    activeTab === tab
-                      ? "border-blue-500 text-blue-700"
-                      : "border-transparent hover:text-gray-800 hover:border-gray-300"
-                  }`}
-                  onClick={() => setActiveTab(tab)}
-                >
-                  {tab === "details" ? "Détails" :
-                    tab === "timeline" ? "Chronologie" :
-                      tab === "fichiers" ? "Fichiers" : "Autres"}
-                </button>
-              ))}
-            </div>
-
-            {/* Content */}
-            <div className="mt-6">
-              {activeTab === "details" && (
-                <div className="bg-white rounded-lg shadow-md p-6 w-full">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Description de l'incident</h3>
-                  <p className="whitespace-pre-line text-base text-gray-700">{incident.description}</p>
-                  <div className="mt-4">
-                    <h4 className="text-lg font-medium text-gray-800 mb-2">Détails supplémentaires</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <span className="font-semibold text-sm text-gray-700">Date d'attribution :</span>
-                        <span className="ml-2 text-sm text-gray-600">{new Date(incident.dateAttribution).toLocaleDateString()}</span>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-sm text-gray-700">Date de résolution :</span>
-                        <span className="ml-2 text-sm text-gray-600">{incident.dateResolution ? new Date(incident.dateResolution).toLocaleDateString() : "Non résolu"}</span>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-sm text-gray-700">Application :</span>
-                        <span className="ml-2 text-sm text-gray-600">{incident.application}</span>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-sm text-gray-700">Client (Souscription) :</span>
-                        <span className="ml-2 text-sm text-gray-600">{incident.clientSub}</span>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-sm text-gray-700">Rôle du client :</span>
-                        <span className="ml-2 text-sm text-gray-600">{incident.client_role}</span>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-sm text-gray-700">Service client :</span>
-                        <span className="ml-2 text-sm text-gray-600">{incident.client_serviceName}</span>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-sm text-gray-700">Développeur :</span>
-                        <span className="ml-2 text-sm text-gray-600">{incident.coeDev_fullName}</span>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-sm text-gray-700">Rôle du développeur :</span>
-                        <span className="ml-2 text-sm text-gray-600">{incident.coeDev_role}</span>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-sm text-gray-700">Service développeur :</span>
-                        <span className="ml-2 text-sm text-gray-600">{incident.coeDev_serviceName}</span>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-sm text-gray-700">Email développeur :</span>
-                        <span className="ml-2 text-sm text-gray-600">
-                          <a href={`mailto:${incident.coeDev_mail}`} className="text-blue-600 hover:underline">
-                            {incident.coeDev_mail}
-                          </a>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Popup ajouter documentation */}
-        {isPopupOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-1/2 p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">Ajouter Documentation</h2>
-                <button onClick={handleCancel} className="text-gray-500 hover:text-gray-700">
-                  <FaTimes />
-                </button>
-              </div>
-              <div className="space-y-2">
-                <div>
-                  <label htmlFor="documentationTitle" className="block text-xs font-medium text-gray-700 mb-1">
-                    Titre du Document <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="documentationTitle"
-                    name="documentationTitle"
-                    value={docFormData.documentationTitle}
-                    onChange={handleDocFormChange}
-                    className="w-full p-1.5 border rounded-lg focus:outline-none focus:ring-2"
-                    style={{ borderColor: COLORS.border }}
-                    placeholder="Ex: Rapport d'analyse post-incident"
-                  />
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <label htmlFor="documentationDate" className="block text-xs font-medium text-gray-700 mb-1">
-                      Date du Document <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      id="documentationDate"
-                      name="documentationDate"
-                      value={docFormData.documentationDate}
-                      onChange={handleDocFormChange}
-                      className="w-full p-1.5 border rounded-lg focus:outline-none focus:ring-2"
-                      style={{ borderColor: COLORS.border }}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Soumis par <span className="text-red-500">*</span>
-                    </label>
-                    <div className="mt-1 flex items-center gap-2">
-                      <div className="relative group">
-                        <Avatar
-                          sx={{
-                            bgcolor: COLORS.dusk,
-                            width: 28,
-                            height: 28,
-                            fontSize: 12,
-                          }}
-                        >
-                          {getInitials(incident.client_fullName)}
-                        </Avatar>
-                        <span
-                          className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-20 transition"
-                          style={{ backgroundColor: COLORS.dusk }}
-                        />
-                      </div>
-                      <a
-                        href={`mailto:${incident.client_mail}`}
-                        className="font-medium text-[#2563EB] hover:underline"
-                      >
-                        {incident.client_fullName}
-                      </a>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="rootCause" className="block text-xs font-medium text-gray-700 mb-1">
-                    Analyse de la Cause Racine (Root Cause) <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    id="rootCause"
-                    name="rootCause"
-                    rows={2}
-                    value={docFormData.rootCause}
-                    onChange={handleDocFormChange}
-                    className="w-full p-1.5 border rounded-lg focus:outline-none focus:ring-2"
-                    style={{ borderColor: COLORS.border }}
-                    placeholder="Décrire la cause fondamentale de l'incident..."
-                  />
-                </div>
-                <div>
-                  <label htmlFor="actionsTaken" className="block text-xs font-medium text-gray-700 mb-1">
-                    Actions Correctives Immédiates <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    id="actionsTaken"
-                    name="actionsTaken"
-                    rows={2}
-                    value={docFormData.actionsTaken}
-                    onChange={handleDocFormChange}
-                    className="w-full p-1.5 border rounded-lg focus:outline-none focus:ring-2"
-                    style={{ borderColor: COLORS.border }}
-                    placeholder="Lister les actions prises pour contenir et corriger l'incident..."
-                  />
-                </div>
-                <div>
-                  <label htmlFor="resolutionSteps" className="block text-xs font-medium text-gray-700 mb-1">
-                    Étapes de Résolution <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    id="resolutionSteps"
-                    name="resolutionSteps"
-                    rows={2}
-                    value={docFormData.resolutionSteps}
-                    onChange={handleDocFormChange}
-                    className="w-full p-1.5 border rounded-lg focus:outline-none focus:ring-2"
-                    style={{ borderColor: COLORS.border }}
-                    placeholder="Détailler les étapes suivies pour résoudre l'incident..."
-                  />
-                </div>
-                <div>
-                  <label htmlFor="preventiveMeasures" className="block text-xs font-medium text-gray-700 mb-1">
-                    Mesures Préventives Recommandées
-                  </label>
-                  <textarea
-                    id="preventiveMeasures"
-                    name="preventiveMeasures"
-                    rows={2}
-                    value={docFormData.preventiveMeasures}
-                    onChange={handleDocFormChange}
-                    className="w-full p-1.5 border rounded-lg focus:outline-none focus:ring-2"
-                    style={{ borderColor: COLORS.border }}
-                    placeholder="Quelles mesures pour éviter la récurrence ?"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end mt-4">
-                <button
-                  onClick={handleCancel}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 mr-2"
-                >
-                  Annuler
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Enregistrer
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+    <div>
+      {/* Ton UI ici */}
     </div>
   );
 }
