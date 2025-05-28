@@ -1,4 +1,7 @@
-   // Debug: Log FormData entries
-      for (let [key, value] of formData.entries()) {
-        console.log(`FormData entry: ${key}=${value}`);
-      }
+const iterator = formData.entries();
+let result = iterator.next();
+while (!result.done) {
+  const [key, value] = result.value;
+  console.log(`FormData entry: ${key}=${value}`);
+  result = iterator.next();
+}
