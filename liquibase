@@ -1,1 +1,4 @@
-formData.append("clientIgg", incident.clientIgg !== null && incident.clientIgg !== undefined ? incident.clientIgg : "");
+   // Debug: Log FormData entries
+      for (let [key, value] of formData.entries()) {
+        console.log(`FormData entry: ${key}=${value}`);
+      }
