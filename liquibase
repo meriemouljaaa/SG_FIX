@@ -1,78 +1,14 @@
-package com.sg.abs.service;
+ <changeSet id="20250528-1051-add-incident-file-paths" author="grok3">
+        <createTable tableName="incident_file_paths">
+            <column name="incident_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_incident_file_paths_incident" 
+                             referencedTableName="incident" referencedColumnNames="id"/>
+            </column>
+            <column name="file_path" type="VARCHAR(255)">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
 
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
-@Service
-public class CreateIncidentService {
-
-    private final ObjectStorageClient objectStorageClient;
-
-    public CreateIncidentService(ObjectStorageClient objectStorageClient) {
-        this.objectStorageClient = objectStorageClient;
-    }
-
-    public Incident createIncident(Incident incident, List<MultipartFile> files) throws Exception {
-        // Générer un UUID pour l'incident
-        String incidentId = UUID.randomUUID().toString();
-        incident.setIncidentId(incidentId);
-
-        // Sauvegarder l'incident dans la base de données (ou autre logique métier)
-        // incidentRepository.save(incident); // Décommenter et adapter selon ton implémentation
-
-        // Si des fichiers sont fournis, les uploader dans S3
-        List<String> uploadedFilePaths = new ArrayList<>();
-        if (files != null && !files.isEmpty()) {
-            for (MultipartFile file : files) {
-                String uploadedPath = uploadIncidentFile(file, incidentId);
-                uploadedFilePaths.add(uploadedPath);
-            }
-        }
-
-        // Associer les chemins des fichiers à l'incident (si nécessaire)
-        incident.setFilePaths(uploadedFilePaths);
-
-        return incident;
-    }
-
-    private String uploadIncidentFile(MultipartFile file, String incidentId) throws Exception {
-        // Générer un nom de fichier unique avec UUID
-        String uniqueFileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
-        // Définir le dossier dans S3 (par exemple: incidents/{incidentId}/)
-        String bucket = "sg-abs-bucket"; // Remplace par ton bucket S3
-        String objectName = "incidents/" + incidentId + "/" + uniqueFileName;
-
-        try (InputStream inputStream = file.getInputStream()) {
-            // Appeler la méthode upload avec InputStream
-            objectStorageClient.upload(inputStream, bucket, objectName, file.getContentType());
-            return objectName; // Retourner le chemin pour référence
-        }
-    }
-}
-
-// Exemple de classe Incident (à adapter selon ton modèle)
-class Incident {
-    private String incidentId;
-    private List<String> filePaths;
-
-    public String getIncidentId() {
-        return incidentId;
-    }
-
-    public void setIncidentId(String incidentId) {
-        this.incidentId = incidentId;
-    }
-
-    public List<String> getFilePaths() {
-        return filePaths;
-    }
-
-    public void setFilePaths(List<String> filePaths) {
-        this.filePaths = filePaths;
-    }
-}
+        <addPrimaryKey tableName="incident_file_paths" columnNames="incident_id, file_path" 
+                       constraintName="pk_incident_file_paths"/>
+    </changeSet>
