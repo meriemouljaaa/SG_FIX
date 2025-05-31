@@ -1,53 +1,14 @@
-import { useState, useEffect } from 'react';
-import { getIncidentFiles } from './services'; // Adjust the import path
-
-const IncidentForm = ({ id }: { id: BigInt }) => {
-  const [activeTab, setActiveTab] = useState("chronologie");
-  const [images, setImages] = useState<string[] | null>(null);
-
-  useEffect(() => {
-    if (activeTab === "fichiers") {
-      getIncidentFiles(id)
-        .then((files) => setImages(files))
-        .catch((error) => {
-          console.error(error);
-          setImages([]);
-        });
-    }
-  }, [activeTab, id]);
-
-  return (
-    <div>
-      {activeTab === "chronologie" && (
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Chronologie de l'incident</h3>
-          <p className="text-gray-500">Aucune chronologie disponible pour le moment.</p>
-        </div>
-      )}
-      {activeTab === "fichiers" && (
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Fichiers et Captures d'écran</h3>
-          {images && images.length > 0 ? (
-            images.map((image, index) => (
-              <img
-                key={index}
-                src={`data:image/png;base64,${image}`} // Updated to PNG
-                alt={`Capture ${index + 1}`}
-                className="w-32 h-32 object-cover rounded-md mb-2"
-              />
-            ))
-          ) : (
-            <p className="text-gray-500">Aucun fichier disponible pour le moment.</p>
-          )}
-        </div>
-      )}
-      {activeTab === "commentaires" && (
-        <div className="p-6 rounded-lg shadow-md">
-          <CommentSection />
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default IncidentForm;
+ {incident?.fichierJoints && incident.fichierJoints.length > 0 ? (
+      <div className="flex flex-wrap gap-4">
+        {incident.fichierJoints.map((base64String, index) => (
+          <img
+            key={index}
+            src={`data:image/png;base64,${base64String}`}
+            alt={`Capture ${index + 1}`}
+            className="w-32 h-32 object-cover rounded-md border"
+          />
+        ))}
+      </div>
+    ) : (
+      <p className="text-gray-500">Aucun fichier disponible pour le moment.</p>
+    )}
