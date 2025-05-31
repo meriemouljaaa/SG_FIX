@@ -1,14 +1,32 @@
- {incident?.fichierJoints && incident.fichierJoints.length > 0 ? (
-      <div className="flex flex-wrap gap-4">
-        {incident.fichierJoints.map((base64String, index) => (
+ {fichierJoints && fichierJoints.length > 0 ? (
+        <div className="flex flex-wrap gap-4">
+          {fichierJoints.map((base64String, index) => (
+            <img
+              key={index}
+              src={`data:image/png;base64,${base64String}`}
+              alt={`Capture ${index + 1}`}
+              className="w-32 h-32 object-cover rounded-md border cursor-pointer"
+              onClick={() => setSelectedImage(base64String)}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="text-gray-500">Aucun fichier disponible pour le moment.</p>
+      )}
+
+      {/* Modal plein écran */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50"
+          onClick={() => setSelectedImage(null)}
+        >
           <img
-            key={index}
-            src={`data:image/png;base64,${base64String}`}
-            alt={`Capture ${index + 1}`}
-            className="w-32 h-32 object-cover rounded-md border"
+            src={`data:image/png;base64,${selectedImage}`}
+            alt="Full screen"
+            className="max-w-full max-h-full object-contain rounded shadow-lg"
           />
-        ))}
-      </div>
-    ) : (
-      <p className="text-gray-500">Aucun fichier disponible pour le moment.</p>
-    )}
+        </div>
+      )}
+    </div>
+  );
+}
