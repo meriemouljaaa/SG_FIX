@@ -15,7 +15,11 @@ type Comment = {
   reactions: { type: string }[];
 };
 
-const CommentSection: React.FC = () => {
+interface CommentSectionProps {
+  incidentId: number;
+}
+
+const CommentSection: React.FC<CommentSectionProps> = ({ incidentId }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [replyContent, setReplyContent] = useState<{ [key: number]: string }>({});
@@ -25,7 +29,7 @@ const CommentSection: React.FC = () => {
   useEffect(() => {
     const fetchComments = async () => {
       try {
-        const response = await fetch("/api/comments"); // Adjust endpoint as needed
+        const response = await fetch("/api/comments");
         const data = await response.json();
         const formattedComments = data.map((item: any) => ({
           id: item.commentaireId || item.id,
@@ -38,7 +42,7 @@ const CommentSection: React.FC = () => {
           serviceName: item.serviceName,
           content: item.contenu || item.content,
           parentCommentId: item.parentCommentaireId,
-          reactions: item.reactions || [{ type: "like" }], // Default to like if no reactions
+          reactions: item.reactions || [{ type: "like" }],
         }));
         setComments(formattedComments);
       } catch (error) {
@@ -70,26 +74,53 @@ const CommentSection: React.FC = () => {
     setNewComment("");
   };
 
-  const handleAddReply = (e: React.FormEvent, parentId: number) => {
+  const handleAddReply = async (e: React.FormEvent, parentId: number) => {
     e.preventDefault();
-    if (!replyContent[parentId]?.trim()) return;
-    const newId = comments.length ? Math.max(...comments.map(c => c.id)) + 1 : 1;
-    const newReply: Comment = {
-      id: newId,
-      user: "Current User",
-      email: "user@example.com",
-      firstName: "Current",
-      lastName: "User",
-      fullName: "Current User",
-      sub: "user-sub",
-      serviceName: "user-service",
-      content: replyContent[parentId],
+    const content = replyContent[parentId]?.trim();
+    if (!content) return;
+
+    const auteurIgg = localStorage.getItem("igg") || "default-igg";
+    const payload = {
+      contenu: content,
+      incidentId: incidentId,
+      auteurIgg: auteurIgg,
       parentCommentId: parentId,
-      reactions: [{ type: "like" }],
+      reactionType: "like",
     };
-    setComments((prev) => [...prev, newReply]);
-    setReplyContent((prev) => ({ ...prev, [parentId]: "" }));
-    setShowReplyForm((prev) => ({ ...prev, [parentId]: false }));
+
+    try {
+      const response = await fetch("/api/comments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const newId = comments.length ? Math.max(...comments.map(c => c.id)) + 1 : 1;
+        const newReply: Comment = {
+          id: newId,
+          user: "Current User",
+          email: "user@example.com",
+          firstName: "Current",
+          lastName: "User",
+          fullName: "Current User",
+          sub: "user-sub",
+          serviceName: "user-service",
+          content: content,
+          parentCommentId: parentId,
+          reactions: [{ type: "like" }],
+        };
+        setComments((prev) => [...prev, newReply]);
+        setReplyContent((prev) => ({ ...prev, [parentId]: "" }));
+        setShowReplyForm((prev) => ({ ...prev, [parentId]: false }));
+      } else {
+        console.error("Failed to post reply:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error posting reply:", error);
+    }
   };
 
   const toggleReplyForm = (commentId: number) => {
@@ -191,7 +222,35 @@ const CommentSection: React.FC = () => {
                         {getReactionIcon(reaction.type)} 1
                       </span>
                     ))}
+                    <button
+                      onClick={() => toggleReplyForm(reply.id)}
+                      className="text-blue-600 hover:underline"
+                    >
+                      Reply
+                    </button>
                   </div>
+
+                  {showReplyForm[reply.id] && (
+                    <form
+                      onSubmit={(e) => handleAddReply(e, reply.id)}
+                      className="mt-3 pl-5"
+                    >
+                      <textarea
+                        value={replyContent[reply.id] || ""}
+                        onChange={(e) =>
+                          setReplyContent((prev) => ({ ...prev, [reply.id]: e.target.value }))
+                        }
+                        placeholder="Add a reply..."
+                        className="w-full p-3 border rounded-md resize-none h-20 text-gray-700"
+                      />
+                      <button
+                        type="submit"
+                        className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                      >
+                        Post Reply
+                      </button>
+                    </form>
+                  )}
                 </div>
               ))}
           </div>
