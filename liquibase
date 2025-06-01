@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { FaThumbsUp, FaHeart } from "react-icons/fa";
+import { IoSend } from "react-icons/io5";
 
 type Comment = {
   id: number;
@@ -99,7 +100,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ incidentId }) => {
       });
 
       if (response.ok) {
-        const newReplyData = await response.json(); // Assuming backend returns the new comment
+        const newReplyData = await response.json();
         const newReply: Comment = {
           id: newReplyData.id || (comments.length ? Math.max(...comments.map(c => c.id)) + 1 : 1),
           user: "Current User",
@@ -140,158 +141,188 @@ const CommentSection: React.FC<CommentSectionProps> = ({ incidentId }) => {
   };
 
   const getAvatar = (user: string) => {
-    const [firstName, lastName] = user.split(" ");
-    const initials = `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
+    const [firstName] = user.split(" ");
+    const initial = firstName?.[0]?.toUpperCase() || "";
     return (
-      <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center mr-2">
-        {initials}
+      <div className="w-8 h-8 bg-gray-300 text-gray-700 rounded-full flex items-center justify-center mr-2">
+        {initial}
       </div>
     );
   };
 
+  const getRepliesCount = (commentId: number) => {
+    return comments.filter((c) => c.parentCommentId === commentId).length;
+  };
+
   return (
     <div className="p-5 max-w-4xl">
-      <h3 className="text-xl font-semibold text-gray-900 mb-4">
-        Commentaires{" "}
-        <span className="bg-gray-200 rounded-full px-2 py-1 text-sm">
-          {comments.length}
-        </span>
-      </h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">
+          Comments <span className="text-gray-500">({comments.length})</span>
+        </h3>
+        <div className="flex gap-2">
+          <button className="text-sm text-gray-600 border rounded-full px-3 py-1 hover:bg-gray-100">
+            Popular
+          </button>
+          <button className="text-sm text-gray-600 border rounded-full px-3 py-1 hover:bg-gray-100">
+            Newest
+          </button>
+        </div>
+      </div>
 
-      <form onSubmit={handleAddComment} className="mb-6">
+      <form onSubmit={handleAddComment} className="mb-6 flex items-center bg-gray-100 rounded-lg p-3">
         <textarea
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
-          placeholder="Add a comment..."
-          className="w-full p-3 border rounded-md resize-none h-24 text-gray-700"
+          placeholder="Write your comment here..."
+          className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-500"
+          rows={1}
         />
-        <button
-          type="submit"
-          className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          Post Comment
+        <button type="submit" className="text-blue-500 hover:text-blue-600">
+          <IoSend size={20} />
         </button>
       </form>
 
       {comments
         .filter((comment) => !comment.parentCommentId)
         .map((comment) => (
-          <div key={comment.id} className="border-l-4 border-gray-300 my-5 pl-3">
-            <p className="flex items-center">
+          <div key={comment.id} className="my-4">
+            <div className="flex items-start">
               {getAvatar(comment.user)}
-              <strong className="text-gray-800">{comment.user}</strong>{" "}
-              <span className="text-gray-500 text-sm ml-2">{getCurrentTimeAgo()}</span>
-            </p>
-            <p className="text-gray-700 my-2">{comment.content}</p>
-            <div className="flex gap-3 text-gray-600 text-sm">
-              {comment.reactions.map((reaction, index) => (
-                <span key={index} className="flex items-center gap-1">
-                  {getReactionIcon(reaction.type)} 1
-                </span>
-              ))}
-              <button
-                onClick={() => toggleReplyForm(comment.id)}
-                className="text-blue-600 hover:underline"
-              >
-                Reply
-              </button>
-            </div>
-
-            {showReplyForm[comment.id] && (
-              <form
-                onSubmit={(e) => handleAddReply(e, comment.id)}
-                className="mt-3 pl-5"
-              >
-                <textarea
-                  value={replyContent[comment.id] || ""}
-                  onChange={(e) =>
-                    setReplyContent((prev) => ({ ...prev, [comment.id]: e.target.value }))
-                  }
-                  placeholder="Add a reply..."
-                  className="w-full p-3 border rounded-md resize-none h-20 text-gray-700"
-                />
-                <button
-                  type="submit"
-                  className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
-                  Post Reply
-                </button>
-              </form>
-            )}
-
-            {comments
-              .filter((c) => c.parentCommentId === comment.id)
-              .map((reply) => (
-                <div key={reply.id} className="mt-4 pl-5 border-l-2 border-gray-200">
-                  <p className="flex items-center">
-                    {getAvatar(reply.user)}
-                    <strong className="text-gray-800">{reply.user}</strong>{" "}
-                    <span className="text-gray-500 text-sm ml-2">{getCurrentTimeAgo()}</span>
-                  </p>
-                  <p className="text-gray-700 my-2">{reply.content}</p>
-                  <div className="flex gap-3 text-gray-600 text-sm">
-                    {reply.reactions.map((reaction, index) => (
-                      <span key={index} className="flex items-center gap-1">
-                        {getReactionIcon(reaction.type)} 1
-                      </span>
-                    ))}
-                    <button
-                      onClick={() => toggleReplyForm(reply.id)}
-                      className="text-blue-600 hover:underline"
-                    >
-                      Reply
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <strong className="text-gray-800 text-sm">{comment.user}</strong>
+                  <span className="text-gray-500 text-xs">{getCurrentTimeAgo()}</span>
+                </div>
+                <p className="text-gray-700 text-sm mt-1">{comment.content}</p>
+                <div className="flex gap-3 text-gray-500 text-xs mt-2">
+                  <button className="hover:underline">Translate</button>
+                  {comment.reactions.map((reaction, index) => (
+                    <span key={index} className="flex items-center gap-1">
+                      {getReactionIcon(reaction.type)} 1
+                    </span>
+                  ))}
+                  <button
+                    onClick={() => toggleReplyForm(comment.id)}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Reply
+                  </button>
+                  {getRepliesCount(comment.id) > 0 && (
+                    <button className="text-blue-600 hover:underline">
+                      See {getRepliesCount(comment.id)} Replies
                     </button>
-                  </div>
-
-                  {showReplyForm[reply.id] && (
-                    <form
-                      onSubmit={(e) => handleAddReply(e, reply.id)}
-                      className="mt-3 pl-5"
-                    >
-                      <textarea
-                        value={replyContent[reply.id] || ""}
-                        onChange={(e) =>
-                          setReplyContent((prev) => ({ ...prev, [reply.id]: e.target.value }))
-                        }
-                        placeholder="Add a reply..."
-                        className="w-full p-3 border rounded-md resize-none h-20 text-gray-700"
-                      />
-                      <button
-                        type="submit"
-                        className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                      >
-                        Post Reply
-                      </button>
-                    </form>
                   )}
+                </div>
 
-                  {comments
-                    .filter((r) => r.parentCommentId === reply.id)
-                    .map((subReply) => (
-                      <div key={subReply.id} className="mt-4 pl-5 border-l-2 border-gray-200">
-                        <p className="flex items-center">
-                          {getAvatar(subReply.user)}
-                          <strong className="text-gray-800">{subReply.user}</strong>{" "}
-                          <span className="text-gray-500 text-sm ml-2">{getCurrentTimeAgo()}</span>
-                        </p>
-                        <p className="text-gray-700 my-2">{subReply.content}</p>
-                        <div className="flex gap-3 text-gray-600 text-sm">
-                          {subReply.reactions.map((reaction, index) => (
-                            <span key={index} className="flex items-center gap-1">
-                              {getReactionIcon(reaction.type)} 1
-                            </span>
-                          ))}
-                          <button
-                            onClick={() => toggleReplyForm(subReply.id)}
-                            className="text-blue-600 hover:underline"
-                          >
-                            Reply
-                          </button>
+                {showReplyForm[comment.id] && (
+                  <form
+                    onSubmit={(e) => handleAddReply(e, comment.id)}
+                    className="mt-3 flex items-center bg-gray-100 rounded-lg p-3"
+                  >
+                    <textarea
+                      value={replyContent[comment.id] || ""}
+                      onChange={(e) =>
+                        setReplyContent((prev) => ({ ...prev, [comment.id]: e.target.value }))
+                      }
+                      placeholder="Write your reply here..."
+                      className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-500"
+                      rows={1}
+                    />
+                    <button type="submit" className="text-blue-500 hover:text-blue-600">
+                      <IoSend size={20} />
+                    </button>
+                  </form>
+                )}
+
+                {comments
+                  .filter((c) => c.parentCommentId === comment.id)
+                  .map((reply) => (
+                    <div key={reply.id} className="mt-4 ml-10">
+                      <div className="flex items-start">
+                        {getAvatar(reply.user)}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <strong className="text-gray-800 text-sm">{reply.user}</strong>
+                            <span className="text-gray-500 text-xs">{getCurrentTimeAgo()}</span>
+                          </div>
+                          <p className="text-gray-700 text-sm mt-1">{reply.content}</p>
+                          <div className="flex gap-3 text-gray-500 text-xs mt-2">
+                            <button className="hover:underline">Translate</button>
+                            {reply.reactions.map((reaction, index) => (
+                              <span key={index} className="flex items-center gap-1">
+                                {getReactionIcon(reaction.type)} 1
+                              </span>
+                            ))}
+                            <button
+                              onClick={() => toggleReplyForm(reply.id)}
+                              className="text-blue-600 hover:underline"
+                            >
+                              Reply
+                            </button>
+                            {getRepliesCount(reply.id) > 0 && (
+                              <button className="text-blue-600 hover:underline">
+                                See {getRepliesCount(reply.id)} Replies
+                              </button>
+                            )}
+                          </div>
+
+                          {showReplyForm[reply.id] && (
+                            <form
+                              onSubmit={(e) => handleAddReply(e, reply.id)}
+                              className="mt-3 flex items-center bg-gray-100 rounded-lg p-3"
+                            >
+                              <textarea
+                                value={replyContent[reply.id] || ""}
+                                onChange={(e) =>
+                                  setReplyContent((prev) => ({ ...prev, [reply.id]: e.target.value }))
+                                }
+                                placeholder="Write your reply here..."
+                                className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-500"
+                                rows={1}
+                              />
+                              <button type="submit" className="text-blue-500 hover:text-blue-600">
+                                <IoSend size={20} />
+                              </button>
+                            </form>
+                          )}
+
+                          {comments
+                            .filter((r) => r.parentCommentId === reply.id)
+                            .map((subReply) => (
+                              <div key={subReply.id} className="mt-4 ml-10">
+                                <div className="flex items-start">
+                                  {getAvatar(subReply.user)}
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <strong className="text-gray-800 text-sm">{subReply.user}</strong>
+                                      <span className="text-gray-500 text-xs">{getCurrentTimeAgo()}</span>
+                                    </div>
+                                    <p className="text-gray-700 text-sm mt-1">{subReply.content}</p>
+                                    <div className="flex gap-3 text-gray-500 text-xs mt-2">
+                                      <button className="hover:underline">Translate</button>
+                                      {subReply.reactions.map((reaction, index) => (
+                                        <span key={index} className="flex items-center gap-1">
+                                          {getReactionIcon(reaction.type)} 1
+                                        </span>
+                                      ))}
+                                      <button
+                                        onClick={() => toggleReplyForm(subReply.id)}
+                                        className="text-blue-600 hover:underline"
+                                      >
+                                        Reply
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                         </div>
                       </div>
-                    ))}
-                </div>
-              ))}
+                    </div>
+                  ))}
+              </div>
+            </div>
           </div>
         ))}
     </div>
