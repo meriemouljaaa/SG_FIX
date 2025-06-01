@@ -1,4 +1,212 @@
-<div className="mb-6 flex items-center bg-gray-100 rounded-lg p-3">
+"use client";
+import React, { useState, useEffect } from "react";
+import { FaThumbsUp, FaHeart } from "react-icons/fa";
+import { IoSend } from "react-icons/io5";
+
+type Comment = {
+  id: number;
+  user: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  sub: string;
+  serviceName: string;
+  content: string;
+  dateCreation: Date; // Added dateCreation field
+  parentCommentId?: number;
+  reactions: { type: string }[];
+};
+
+interface CommentSectionProps {
+  incidentId: number;
+}
+
+const CommentSection: React.FC<CommentSectionProps> = ({ incidentId }) => {
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [replyContent, setReplyContent] = useState<{ [key: number]: string }>({});
+  const [showReplyForm, setShowReplyForm] = useState<{ [key: number]: boolean }>({});
+  const [userInfo, setUserInfo] = useState<{ firstName: string; lastName: string; fullName: string } | null>(null);
+
+  // Fetch user info from localStorage
+  useEffect(() => {
+    const userInfoString = localStorage.getItem("user_info");
+    if (userInfoString) {
+      const parsedUserInfo = JSON.parse(userInfoString);
+      setUserInfo({
+        firstName: parsedUserInfo.firstName || "",
+        lastName: parsedUserInfo.lastName || "",
+        fullName: parsedUserInfo.fullName || `${parsedUserInfo.firstName} ${parsedUserInfo.lastName}`,
+      });
+    }
+  }, []);
+
+  // Fetch comments from backend
+  useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        const response = await fetch("/api/comments");
+        const data = await response.json();
+        const formattedComments = data.map((item: any) => ({
+          id: item.commentaireId || item.id,
+          user: item.fullName || `${item.firstName} ${item.lastName}`,
+          email: item.email,
+          firstName: item.firstName,
+          lastName: item.lastName,
+          fullName: item.fullName,
+          sub: item.sub,
+          serviceName: item.serviceName,
+          content: item.contenu || item.content,
+          dateCreation: new Date(item.dateCreation), // Parse dateCreation as Date
+          parentCommentId: item.parentCommentaireId,
+          reactions: item.reactions || [{ type: "like" }],
+        }));
+        setComments(formattedComments);
+      } catch (error) {
+        console.error("Error fetching comments:", error);
+      }
+    };
+    fetchComments();
+  }, []);
+
+  const getFormattedDate = (date: Date) => {
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).replace(",", "");
+  };
+
+  const handleAddComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
+    const newId = comments.length ? Math.max(...comments.map(c => c.id)) + 1 : 1;
+    const comment: Comment = {
+      id: newId,
+      user: userInfo?.fullName || "Current User",
+      email: "user@example.com",
+      firstName: userInfo?.firstName || "Current",
+      lastName: userInfo?.lastName || "User",
+      fullName: userInfo?.fullName || "Current User",
+      sub: "user-sub",
+      serviceName: "user-service",
+      content: newComment,
+      dateCreation: new Date(), // Set current date for new comment
+      reactions: [{ type: "like" }],
+    };
+    setComments((prev) => [...prev, comment]);
+    setNewComment("");
+  };
+
+  const handleAddReply = async (e: React.FormEvent, parentId: number) => {
+    e.preventDefault();
+    const content = replyContent[parentId]?.trim();
+    if (!content) return;
+
+    const auteurIgg = localStorage.getItem("igg") || "default-igg";
+    const payload = {
+      contenu: content,
+      incidentId: incidentId,
+      auteurIgg: auteurIgg,
+      parentCommentId: parentId,
+      reactionType: "like",
+    };
+
+    try {
+      const response = await fetch("/api/comments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const newReplyData = await response.json();
+        const newReply: Comment = {
+          id: newReplyData.id || (comments.length ? Math.max(...comments.map(c => c.id)) + 1 : 1),
+          user: userInfo?.fullName || "Current User",
+          email: "user@example.com",
+          firstName: userInfo?.firstName || "Current",
+          lastName: userInfo?.lastName || "User",
+          fullName: userInfo?.fullName || "Current User",
+          sub: "user-sub",
+          serviceName: "user-service",
+          content: content,
+          dateCreation: new Date(), // Set current date for new reply
+          parentCommentId: parentId,
+          reactions: [{ type: "like" }],
+        };
+        setComments((prev) => [...prev, newReply]);
+        setReplyContent((prev) => ({ ...prev, [parentId]: "" }));
+        setShowReplyForm((prev) => ({ ...prev, [parentId]: false }));
+      } else {
+        console.error("Failed to post reply:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error posting reply:", error);
+    }
+  };
+
+  const toggleReplyForm = (commentId: number) => {
+    setShowReplyForm((prev) => ({ ...prev, [commentId]: !prev[commentId] }));
+  };
+
+  const getReactionIcon = (type: string) => {
+    switch (type) {
+      case "like":
+        return <FaThumbsUp className="inline mr-1" />;
+      case "love":
+        return <FaHeart className="inline mr-1" />;
+      default:
+        return <FaThumbsUp className="inline mr-1" />;
+    }
+  };
+
+  const getAvatar = (user: string) => {
+    const [firstName] = user.split(" ");
+    const initial = firstName?.[0]?.toUpperCase() || "";
+    return (
+      <div className="w-8 h-8 bg-gray-300 text-gray-700 rounded-full flex items-center justify-center mr-2">
+        {initial}
+      </div>
+    );
+  };
+
+  const getUserAvatar = () => {
+    const initial = userInfo?.firstName?.[0]?.toUpperCase() || "";
+    return (
+      <div className="w-8 h-8 bg-gray-300 text-gray-700 rounded-full flex items-center justify-center mr-2">
+        {initial}
+      </div>
+    );
+  };
+
+  const getRepliesCount = (commentId: number) => {
+    return comments.filter((c) => c.parentCommentId === commentId).length;
+  };
+
+  return (
+    <div className="p-5 max-w-4xl">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">
+          Comments <span className="text-gray-500">({comments.length})</span>
+        </h3>
+        <div className="flex gap-2">
+          <button className="text-sm text-gray-600 border rounded-full px-3 py-1 hover:bg-gray-100">
+            Popular
+          </button>
+          <button className="text-sm text-gray-600 border rounded-full px-3 py-1 hover:bg-gray-100">
+            Newest
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-6 flex items-center bg-gray-100 rounded-lg p-3">
         {userInfo && getUserAvatar()}
         <form onSubmit={handleAddComment} className="flex items-center flex-1">
           <textarea
@@ -13,23 +221,151 @@
           </button>
         </form>
       </div>
-  const getUserAvatar = () => {
-    const initial = userInfo?.firstName?.[0]?.toUpperCase() || "";
-    return (
-      <div className="w-8 h-8 bg-gray-300 text-gray-700 rounded-full flex items-center justify-center mr-2">
-        {initial}
-      </div>
-    );
-  };
- useEffect(() => {
-    const userInfoString = localStorage.getItem("user_info");
-    if (userInfoString) {
-      const parsedUserInfo = JSON.parse(userInfoString);
-      setUserInfo({
-        firstName: parsedUserInfo.firstName || "",
-        lastName: parsedUserInfo.lastName || "",
-        fullName: parsedUserInfo.fullName || `${parsedUserInfo.firstName} ${parsedUserInfo.lastName}`,
-      });
-    }
-  }, []);
-  const [userInfo, setUserInfo] = useState<{ firstName: string; lastName: string; fullName: string } | null>(null);
+
+      {comments
+        .filter((comment) => !comment.parentCommentId)
+        .map((comment) => (
+          <div key={comment.id} className="my-4">
+            <div className="flex items-start">
+              {getAvatar(comment.user)}
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <strong className="text-gray-800 text-sm">{comment.user}</strong>
+                  <span className="text-gray-500 text-xs">{getFormattedDate(comment.dateCreation)}</span>
+                </div>
+                <p className="text-gray-700 text-sm mt-1">{comment.content}</p>
+                <div className="flex gap-3 text-gray-500 text-xs mt-2">
+                  <button className="hover:underline">Translate</button>
+                  {comment.reactions.map((reaction, index) => (
+                    <span key={index} className="flex items-center gap-1">
+                      {getReactionIcon(reaction.type)} 1
+                    </span>
+                  ))}
+                  <button
+                    onClick={() => toggleReplyForm(comment.id)}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Reply
+                  </button>
+                  {getRepliesCount(comment.id) > 0 && (
+                    <button className="text-blue-600 hover:underline">
+                      See {getRepliesCount(comment.id)} Replies
+                    </button>
+                  )}
+                </div>
+
+                {showReplyForm[comment.id] && (
+                  <div className="mt-3 flex items-center bg-gray-100 rounded-lg p-3">
+                    {userInfo && getUserAvatar()}
+                    <form onSubmit={(e) => handleAddReply(e, comment.id)} className="flex items-center flex-1">
+                      <textarea
+                        value={replyContent[comment.id] || ""}
+                        onChange={(e) =>
+                          setReplyContent((prev) => ({ ...prev, [comment.id]: e.target.value }))
+                        }
+                        placeholder="Write your reply here..."
+                        className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-500"
+                        rows={1}
+                      />
+                      <button type="submit" className="text-blue-500 hover:text-blue-600">
+                        <IoSend size={20} />
+                      </button>
+                    </form>
+                  </div>
+                )}
+
+                {comments
+                  .filter((c) => c.parentCommentId === comment.id)
+                  .map((reply) => (
+                    <div key={reply.id} className="mt-4 ml-10">
+                      <div className="flex items-start">
+                        {getAvatar(reply.user)}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <strong className="text-gray-800 text-sm">{reply.user}</strong>
+                            <span className="text-gray-500 text-xs">{getFormattedDate(reply.dateCreation)}</span>
+                          </div>
+                          <p className="text-gray-700 text-sm mt-1">{reply.content}</p>
+                          <div className="flex gap-3 text-gray-500 text-xs mt-2">
+                            <button className="hover:underline">Translate</button>
+                            {reply.reactions.map((reaction, index) => (
+                              <span key={index} className="flex items-center gap-1">
+                                {getReactionIcon(reaction.type)} 1
+                              </span>
+                            ))}
+                            <button
+                              onClick={() => toggleReplyForm(reply.id)}
+                              className="text-blue-600 hover:underline"
+                            >
+                              Reply
+                            </button>
+                            {getRepliesCount(reply.id) > 0 && (
+                              <button className="text-blue-600 hover:underline">
+                                See {getRepliesCount(reply.id)} Replies
+                              </button>
+                            )}
+                          </div>
+
+                          {showReplyForm[reply.id] && (
+                            <div className="mt-3 flex items-center bg-gray-100 rounded-lg p-3">
+                              {userInfo && getUserAvatar()}
+                              <form onSubmit={(e) => handleAddReply(e, reply.id)} className="flex items-center flex-1">
+                                <textarea
+                                  value={replyContent[reply.id] || ""}
+                                  onChange={(e) =>
+                                    setReplyContent((prev) => ({ ...prev, [reply.id]: e.target.value }))
+                                  }
+                                  placeholder="Write your reply here..."
+                                  className="w-full bg-transparent outline-none resize-none text-gray-700 placeholder-gray-500"
+                                  rows={1}
+                                />
+                                <button type="submit" className="text-blue-500 hover:text-blue-600">
+                                  <IoSend size={20} />
+                                </button>
+                              </form>
+                            </div>
+                          )}
+
+                          {comments
+                            .filter((r) => r.parentCommentId === reply.id)
+                            .map((subReply) => (
+                              <div key={subReply.id} className="mt-4 ml-10">
+                                <div className="flex items-start">
+                                  {getAvatar(subReply.user)}
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <strong className="text-gray-800 text-sm">{subReply.user}</strong>
+                                      <span className="text-gray-500 text-xs">{getFormattedDate(subReply.dateCreation)}</span>
+                                    </div>
+                                    <p className="text-gray-700 text-sm mt-1">{subReply.content}</p>
+                                    <div className="flex gap-3 text-gray-500 text-xs mt-2">
+                                      <button className="hover:underline">Translate</button>
+                                      {subReply.reactions.map((reaction, index) => (
+                                        <span key={index} className="flex items-center gap-1">
+                                          {getReactionIcon(reaction.type)} 1
+                                        </span>
+                                      ))}
+                                      <button
+                                        onClick={() => toggleReplyForm(subReply.id)}
+                                        className="text-blue-600 hover:underline"
+                                      >
+                                        Reply
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        ))}
+    </div>
+  );
+};
+
+export default CommentSection;
