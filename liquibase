@@ -251,6 +251,31 @@ const CommentSection: React.FC<CommentSectionProps> = ({ incidentId }) => {
                       </button>
                     </form>
                   )}
+
+                  {comments
+                    .filter((r) => r.parentCommentId === reply.id)
+                    .map((subReply) => (
+                      <div key={subReply.id} className="mt-4 pl-5 border-l-2 border-gray-200">
+                        <p>
+                          <strong className="text-gray-800">{subReply.user}</strong>{" "}
+                          <span className="text-gray-500 text-sm">{getCurrentTimeAgo()}</span>
+                        </p>
+                        <p className="text-gray-700 my-2">{subReply.content}</p>
+                        <div className="flex gap-3 text-gray-600 text-sm">
+                          {subReply.reactions.map((reaction, index) => (
+                            <span key={index} className="flex items-center gap-1">
+                              {getReactionIcon(reaction.type)} 1
+                            </span>
+                          ))}
+                          <button
+                            onClick={() => toggleReplyForm(subReply.id)}
+                            className="text-blue-600 hover:underline"
+                          >
+                            Reply
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                 </div>
               ))}
           </div>
