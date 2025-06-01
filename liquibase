@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { FaThumbsUp, FaHeart } from "react-icons/fa";
 
 type Comment = {
   id: number;
@@ -98,9 +99,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({ incidentId }) => {
       });
 
       if (response.ok) {
-        const newId = comments.length ? Math.max(...comments.map(c => c.id)) + 1 : 1;
+        const newReplyData = await response.json(); // Assuming backend returns the new comment
         const newReply: Comment = {
-          id: newId,
+          id: newReplyData.id || (comments.length ? Math.max(...comments.map(c => c.id)) + 1 : 1),
           user: "Current User",
           email: "user@example.com",
           firstName: "Current",
@@ -130,12 +131,22 @@ const CommentSection: React.FC<CommentSectionProps> = ({ incidentId }) => {
   const getReactionIcon = (type: string) => {
     switch (type) {
       case "like":
-        return "👍";
+        return <FaThumbsUp className="inline mr-1" />;
       case "love":
-        return "❤️";
+        return <FaHeart className="inline mr-1" />;
       default:
-        return "👍";
+        return <FaThumbsUp className="inline mr-1" />;
     }
+  };
+
+  const getAvatar = (user: string) => {
+    const [firstName, lastName] = user.split(" ");
+    const initials = `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
+    return (
+      <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center mr-2">
+        {initials}
+      </div>
+    );
   };
 
   return (
@@ -166,9 +177,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({ incidentId }) => {
         .filter((comment) => !comment.parentCommentId)
         .map((comment) => (
           <div key={comment.id} className="border-l-4 border-gray-300 my-5 pl-3">
-            <p>
+            <p className="flex items-center">
+              {getAvatar(comment.user)}
               <strong className="text-gray-800">{comment.user}</strong>{" "}
-              <span className="text-gray-500 text-sm">{getCurrentTimeAgo()}</span>
+              <span className="text-gray-500 text-sm ml-2">{getCurrentTimeAgo()}</span>
             </p>
             <p className="text-gray-700 my-2">{comment.content}</p>
             <div className="flex gap-3 text-gray-600 text-sm">
@@ -211,9 +223,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({ incidentId }) => {
               .filter((c) => c.parentCommentId === comment.id)
               .map((reply) => (
                 <div key={reply.id} className="mt-4 pl-5 border-l-2 border-gray-200">
-                  <p>
+                  <p className="flex items-center">
+                    {getAvatar(reply.user)}
                     <strong className="text-gray-800">{reply.user}</strong>{" "}
-                    <span className="text-gray-500 text-sm">{getCurrentTimeAgo()}</span>
+                    <span className="text-gray-500 text-sm ml-2">{getCurrentTimeAgo()}</span>
                   </p>
                   <p className="text-gray-700 my-2">{reply.content}</p>
                   <div className="flex gap-3 text-gray-600 text-sm">
@@ -256,9 +269,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({ incidentId }) => {
                     .filter((r) => r.parentCommentId === reply.id)
                     .map((subReply) => (
                       <div key={subReply.id} className="mt-4 pl-5 border-l-2 border-gray-200">
-                        <p>
+                        <p className="flex items-center">
+                          {getAvatar(subReply.user)}
                           <strong className="text-gray-800">{subReply.user}</strong>{" "}
-                          <span className="text-gray-500 text-sm">{getCurrentTimeAgo()}</span>
+                          <span className="text-gray-500 text-sm ml-2">{getCurrentTimeAgo()}</span>
                         </p>
                         <p className="text-gray-700 my-2">{subReply.content}</p>
                         <div className="flex gap-3 text-gray-600 text-sm">
