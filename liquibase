@@ -1,43 +1,64 @@
-@OneToMany(mappedBy = "incident", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<CommentaireEntity> commentaires;
+<changeSet id="20250601-1" author="your-name">
+        <createTable tableName="commentaire">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="contenu" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="incident_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="auteur_id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="date_creation" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="parent_commentaire_id" type="BIGINT">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+    </changeSet>
 
-package com.socgen.unibank.services.gateways.outbound.persistence.jpa;
+    <!-- Changeset pour créer la table commentaire_reactions -->
+    <changeSet id="20250601-2" author="your-name">
+        <createTable tableName="commentaire_reactions">
+            <column name="commentaire_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reaction_type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="utilisateur_id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
 
-import jakarta.persistence.*;
-import lombok.Data;
-
-import java.util.Date;
-import java.util.Map;
-
-@Entity
-@Table(name = "commentaire")
-@Data
-public class CommentaireEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "contenu", nullable = false)
-    private String contenu;
-
-    @ManyToOne
-    @JoinColumn(name = "incident_id", nullable = false)
-    private IncidentEntity incident;
-
-    @ManyToOne
-    @JoinColumn(name = "auteur_id", referencedColumnName = "igg", nullable = false)
-    private UserEntity auteur;
-
-    @Column(name = "date_creation", nullable = false)
-    private Date dateCreation;
-
-    @ElementCollection
-    @CollectionTable(name = "commentaire_reactions", joinColumns = @JoinColumn(name = "commentaire_id"))
-    @MapKeyColumn(name = "reaction_type")
-    @Column(name = "utilisateur_id")
-    private Map<String, String> reactions; // Ex: "LIKE" -> "igg de l'utilisateur"
-
-    @ManyToOne
-    @JoinColumn(name = "parent_commentaire_id", nullable = true)
-    private CommentaireEntity parentCommentaire; // Le commentaire parent auquel ce commentaire répond
-}
+<changeSet id="20250601-3" author="your-name">
+        <addForeignKeyConstraint
+            baseTableName="commentaire"
+            baseColumnNames="incident_id"
+            constraintName="fk_commentaire_incident"
+            referencedTableName="incident"
+            referencedColumnNames="id"/>
+        <addForeignKeyConstraint
+            baseTableName="commentaire"
+            baseColumnNames="auteur_id"
+            constraintName="fk_commentaire_auteur"
+            referencedTableName="user"
+            referencedColumnNames="igg"/>
+        <addForeignKeyConstraint
+            baseTableName="commentaire"
+            baseColumnNames="parent_commentaire_id"
+            constraintName="fk_commentaire_parent"
+            referencedTableName="commentaire"
+            referencedColumnNames="id"/>
+        <addForeignKeyConstraint
+            baseTableName="commentaire_reactions"
+            baseColumnNames="commentaire_id"
+            constraintName="fk_reactions_commentaire"
+            referencedTableName="commentaire"
+            referencedColumnNames="id"/>
+    </changeSet>
