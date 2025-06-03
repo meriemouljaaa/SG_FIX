@@ -1,109 +1,30 @@
-public byte[] generateStyledPdf(GenerateReportIncidentResponse response) throws IOException {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    PdfWriter writer = new PdfWriter(baos);
-    PdfDocument pdf = new PdfDocument(writer);
-    Document doc = new Document(pdf, PageSize.A4);
-    doc.setMargins(40, 40, 40, 40);
-
-    // Polices et couleurs
-    PdfFont font = PdfFontFactory.createFont(StandardFonts.HELVETICA);
-    PdfFont bold = PdfFontFactory.createFont(StandardFonts.HELVETICA_BOLD);
-
-    Color primaryColor = ColorConstants.BLUE;
-    Color gray = new DeviceRgb(240, 240, 240);
-
-    // Logo
-    String logoPath = "src/main/resources/static/logo.png";
-    ImageData imageData = ImageDataFactory.create(logoPath);
-    Image logo = new Image(imageData).scaleToFit(100, 100).setHorizontalAlignment(HorizontalAlignment.RIGHT);
-    doc.add(logo);
-
-    // Titre
-    doc.add(new Paragraph("Rapport d’Incident IT")
-        .setFont(bold)
-        .setFontSize(22)
-        .setFontColor(primaryColor)
-        .setTextAlignment(TextAlignment.CENTER)
-        .setMarginBottom(20));
-
-    // Section 1 - Détails
-    Table detailTable = new Table(3);
-    detailTable.setWidth(UnitValue.createPercentValue(100));
-    detailTable.addCell(new Cell().add(new Paragraph("Titre : " + response.getTitre())).setFont(bold));
-    detailTable.addCell(new Cell().add(new Paragraph("Gravité : " + response.getGravite())));
-    detailTable.addCell(new Cell().add(new Paragraph("Priorité : " + response.getPriorite())));
-    doc.add(detailTable);
-
-    // Section 2 - Client / Co-dev
-    doc.add(new Paragraph("👤 Informations Client")
-        .setFont(bold)
-        .setFontSize(14)
-        .setFontColor(primaryColor)
-        .setMarginTop(15));
-    doc.add(new Paragraph("Nom : " + response.getClientName()));
-    doc.add(new Paragraph("Email : " + response.getClientEmail()));
-
-    doc.add(new Paragraph("🤝 Co-développeur")
-        .setFont(bold)
-        .setFontSize(14)
-        .setFontColor(primaryColor)
-        .setMarginTop(10));
-    doc.add(new Paragraph("Nom : " + response.getCoDevName()));
-    doc.add(new Paragraph("Email : " + response.getCoDevEmail()));
-
-    // Section 3 - Description
-    doc.add(new Paragraph("📝 Description")
-        .setFont(bold)
-        .setFontSize(14)
-        .setFontColor(primaryColor)
-        .setMarginTop(15));
-    doc.add(new Paragraph(response.getDescription()));
-
-    // Section 4 - Résolution
-    doc.add(new Paragraph("🔧 Actions et Résolution")
-        .setFont(bold)
-        .setFontSize(14)
-        .setFontColor(primaryColor)
-        .setMarginTop(15));
-    doc.add(new Paragraph(response.getResolution()));
-
-    // Section 5 - Image (s'il y a une capture ou preuve)
-    if (response.getBase64Image() != null) {
-        byte[] imageBytes = Base64.getDecoder().decode(response.getBase64Image());
-        ImageData screenshot = ImageDataFactory.create(imageBytes);
-        Image img = new Image(screenshot).scaleToFit(400, 300).setMarginTop(10);
-        doc.add(img);
-    }
-
-    // Footer
-    doc.add(new Paragraph("✍️ Rapport généré par : Meriem OULJA – " + LocalDate.now())
-        .setFontSize(10)
-        .setFontColor(ColorConstants.GRAY)
-        .setTextAlignment(TextAlignment.RIGHT)
-        .setMarginTop(30));
-
-    doc.close();
-    return baos.toByteArray();
-}
 @RestController
 @RequestMapping("/api/reports")
 public class IncidentReportController {
 
     private final PdfReportService pdfReportService;
+    private final IncidentService incidentService;
 
-    public IncidentReportController(PdfReportService pdfReportService) {
+    public IncidentReportController(PdfReportService pdfReportService, IncidentService incidentService) {
         this.pdfReportService = pdfReportService;
+        this.incidentService = incidentService;
     }
 
-    @PostMapping(value = "/incident", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<byte[]> generateIncidentReport(@RequestBody GenerateReportIncidentResponse response) {
+    @GetMapping(value = "/incident/{id}", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> generateIncidentReport(@PathVariable Long id) {
         try {
+            GenerateReportIncidentResponse response = incidentService.getIncidentReportById(id);
+
+            if (response == null) {
+                return ResponseEntity.notFound().build();
+            }
+
             byte[] pdfBytes = pdfReportService.generateStyledPdf(response);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
             headers.setContentDisposition(ContentDisposition.builder("attachment")
-                    .filename("rapport_incident_" + LocalDate.now() + ".pdf")
+                    .filename("rapport_incident_" + id + ".pdf")
                     .build());
 
             return ResponseEntity.ok()
@@ -111,8 +32,308 @@ public class IncidentReportController {
                     .body(pdfBytes);
 
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
+    }
+}
+
+
+@Service
+public class IncidentService {
+
+    private final IncidentRepository incidentRepository;
+
+    public IncidentService(IncidentRepository incidentRepository) {
+        this.incidentRepository = incidentRepository;
+    }
+
+    public GenerateReportIncidentResponse getIncidentReportById(Long id) {
+        Optional<Incident> incidentOpt = incidentRepository.findById(id);
+
+        if (incidentOpt.isEmpty()) return null;
+
+        Incident incident = incidentOpt.get();
+
+        GenerateReportIncidentResponse response = new GenerateReportIncidentResponse();
+        response.setTitre(incident.getTitre());
+        response.setDescription(incident.getDescription());
+        response.setGravite(incident.getGravite());
+        response.setPriorite(incident.getPriorite());
+
+        response.setClientName(incident.getClient().getName());
+        response.setClientEmail(incident.getClient().getEmail());
+
+        response.setCoDevName(incident.getCoDeveloppeur().getNom());
+        response.setCoDevEmail(incident.getCoDeveloppeur().getEmail());
+
+        response.setResolution(incident.getResolution());
+
+        // Si tu as une image à inclure
+        if (incident.getScreenshot() != null) {
+            response.setBase64Image(Base64.getEncoder().encodeToString(incident.getScreenshot()));
+        }
+
+        return response;
+    }
+}
+import com.itextpdf.io.image.ImageDataFactory;
+import com.itextpdf.kernel.colors.ColorConstants;
+import com.itextpdf.kernel.events.PdfDocumentEvent;
+import com.itextpdf.kernel.events.PdfEvent;
+import com.itextpdf.kernel.events.PdfEventListener;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.border.SolidBorder;
+import com.itextpdf.layout.element.*;
+import com.itextpdf.layout.property.TextAlignment;
+import com.itextpdf.layout.property.UnitValue;
+import org.springframework.stereotype.Service;
+
+import java.io.ByteArrayOutputStream;
+import java.util.Base64;
+
+@Service
+public class PdfReportService {
+
+    public byte[] generateStyledPdf(GenerateReportIncidentResponse response) {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            PdfWriter writer = new PdfWriter(out);
+            PdfDocument pdfDoc = new PdfDocument(writer);
+            Document document = new Document(pdfDoc);
+
+            // Titre
+            Paragraph title = new Paragraph("Rapport d'Incident")
+                    .setBold()
+                    .setFontSize(20)
+                    .setTextAlignment(TextAlignment.CENTER)
+                    .setFontColor(ColorConstants.BLUE);
+            document.add(title);
+            document.add(new Paragraph("\n"));
+
+            // Informations principales dans un tableau stylé
+            Table table = new Table(UnitValue.createPercentArray(new float[]{1, 2}))
+                    .useAllAvailableWidth()
+                    .setBorder(new SolidBorder(ColorConstants.GRAY, 1));
+
+            table.addCell(new Cell().add("Titre").setBold());
+            table.addCell(new Cell().add(response.getTitre()));
+
+            table.addCell(new Cell().add("Description").setBold());
+            table.addCell(new Cell().add(response.getDescription()));
+
+            table.addCell(new Cell().add("Gravité").setBold());
+            table.addCell(new Cell().add(response.getGravite()));
+
+            table.addCell(new Cell().add("Priorité").setBold());
+            table.addCell(new Cell().add(response.getPriorite()));
+
+            document.add(table);
+            document.add(new Paragraph("\n"));
+
+            // Client
+            document.add(new Paragraph("Informations Client").setBold().setFontSize(14));
+            document.add(new Paragraph("Nom : " + response.getClientName()));
+            document.add(new Paragraph("Email : " + response.getClientEmail()));
+            document.add(new Paragraph("\n"));
+
+            // Développeur
+            document.add(new Paragraph("Informations Développeur").setBold().setFontSize(14));
+            document.add(new Paragraph("Nom : " + response.getCoDevName()));
+            document.add(new Paragraph("Email : " + response.getCoDevEmail()));
+            document.add(new Paragraph("\n"));
+
+            // Résolution
+            document.add(new Paragraph("Résolution").setBold().setFontSize(14));
+            document.add(new Paragraph(response.getResolution()));
+            document.add(new Paragraph("\n"));
+
+            // Image (si présente)
+            if (response.getBase64Image() != null && !response.getBase64Image().isEmpty()) {
+                byte[] imageBytes = Base64.getDecoder().decode(response.getBase64Image());
+                Image image = new Image(ImageDataFactory.create(imageBytes))
+                        .scaleToFit(400, 300)
+                        .setHorizontalAlignment(HorizontalAlignment.CENTER);
+                document.add(new Paragraph("Capture d'écran").setBold().setTextAlignment(TextAlignment.CENTER));
+                document.add(image);
+            }
+
+            document.close();
+            return out.toByteArray();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur lors de la génération du PDF : " + e.getMessage(), e);
+        }
+    }
+}
+@Service
+public class PdfReportService {
+
+    public byte[] generateStyledPdf(GenerateReportIncidentResponse response) {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            PdfWriter writer = new PdfWriter(out);
+            PdfDocument pdfDoc = new PdfDocument(writer);
+            Document doc = new Document(pdfDoc);
+
+            // Titre principal
+            doc.add(new Paragraph("🛠️ Rapport d'Incident")
+                    .setFontSize(22)
+                    .setBold()
+                    .setTextAlignment(TextAlignment.CENTER)
+                    .setFontColor(ColorConstants.BLUE));
+
+            doc.add(new Paragraph("\n"));
+
+            // Section Incident
+            doc.add(new Paragraph("📌 Informations sur l'incident")
+                    .setFontSize(16)
+                    .setBold()
+                    .setFontColor(ColorConstants.DARK_GRAY));
+
+            Table incidentTable = new Table(UnitValue.createPercentArray(new float[]{1, 2}))
+                    .useAllAvailableWidth();
+
+            incidentTable.addCell(cell("ID"));
+            incidentTable.addCell(cell(String.valueOf(response.getId())));
+
+            incidentTable.addCell(cell("Titre"));
+            incidentTable.addCell(cell(response.getTitre()));
+
+            incidentTable.addCell(cell("Description"));
+            incidentTable.addCell(cell(response.getDescription()));
+
+            incidentTable.addCell(cell("Statut"));
+            incidentTable.addCell(cell(response.getStatutIncident()));
+
+            incidentTable.addCell(cell("Gravité"));
+            incidentTable.addCell(cell(response.getGravite()));
+
+            incidentTable.addCell(cell("Priorité"));
+            incidentTable.addCell(cell(response.getPriorite()));
+
+            incidentTable.addCell(cell("Date de déclaration"));
+            incidentTable.addCell(cell(response.getDateDeclaration().toString()));
+
+            incidentTable.addCell(cell("Date d'attribution"));
+            incidentTable.addCell(cell(response.getDateAttribution().toString()));
+
+            incidentTable.addCell(cell("Date de résolution"));
+            incidentTable.addCell(cell(response.getDateResolution().toString()));
+
+            doc.add(incidentTable);
+            doc.add(new Paragraph("\n"));
+
+            // Section Client
+            doc.add(new Paragraph("👤 Informations sur le Client")
+                    .setFontSize(16)
+                    .setBold());
+
+            Table clientTable = new Table(UnitValue.createPercentArray(new float[]{1, 2}))
+                    .useAllAvailableWidth();
+
+            clientTable.addCell(cell("Nom complet"));
+            clientTable.addCell(cell(response.getClient_fullName()));
+
+            clientTable.addCell(cell("Prénom / Nom"));
+            clientTable.addCell(cell(response.getClient_firstName() + " " + response.getClient_lastName()));
+
+            clientTable.addCell(cell("Email"));
+            clientTable.addCell(cell(response.getClient_mail()));
+
+            clientTable.addCell(cell("Service"));
+            clientTable.addCell(cell(response.getClient_serviceName()));
+
+            clientTable.addCell(cell("IGG"));
+            clientTable.addCell(cell(response.getClient_igg()));
+
+            clientTable.addCell(cell("Roles"));
+            clientTable.addCell(cell(String.join(", ", response.getClient_role())));
+
+            doc.add(clientTable);
+            doc.add(new Paragraph("\n"));
+
+            // Section Développeur
+            doc.add(new Paragraph("💻 Informations sur le développeur COE")
+                    .setFontSize(16)
+                    .setBold());
+
+            Table devTable = new Table(UnitValue.createPercentArray(new float[]{1, 2}))
+                    .useAllAvailableWidth();
+
+            devTable.addCell(cell("Nom complet"));
+            devTable.addCell(cell(response.getCoeDev_fullName()));
+
+            devTable.addCell(cell("Prénom / Nom"));
+            devTable.addCell(cell(response.getCoeDev_FirstName() + " " + response.getCoeDev_lastName()));
+
+            devTable.addCell(cell("Email"));
+            devTable.addCell(cell(response.getCoeDev_mail()));
+
+            devTable.addCell(cell("Service"));
+            devTable.addCell(cell(response.getCoeDev_serviceName()));
+
+            devTable.addCell(cell("IGG"));
+            devTable.addCell(cell(response.getCoeDev_igg()));
+
+            devTable.addCell(cell("Rôles"));
+            devTable.addCell(cell(String.join(", ", response.getCoeDev_role())));
+
+            doc.add(devTable);
+            doc.add(new Paragraph("\n"));
+
+            // Section Application
+            doc.add(new Paragraph("🧩 Environnement & Application")
+                    .setFontSize(16)
+                    .setBold());
+
+            Table appTable = new Table(UnitValue.createPercentArray(new float[]{1, 2}))
+                    .useAllAvailableWidth();
+
+            appTable.addCell(cell("Environnement"));
+            appTable.addCell(cell(response.getEnvironnement()));
+
+            appTable.addCell(cell("Application"));
+            appTable.addCell(cell(response.getApplication()));
+
+            doc.add(appTable);
+            doc.add(new Paragraph("\n"));
+
+            // Section Tags
+            doc.add(new Paragraph("🏷️ Tags"))
+                    .setFontSize(14)
+                    .setBold();
+            doc.add(new Paragraph(String.join(", ", response.getTags())));
+            doc.add(new Paragraph("\n"));
+
+            // Section Documentation
+            doc.add(new Paragraph("📚 Documentation & Résolution")
+                    .setFontSize(16)
+                    .setBold());
+
+            doc.add(new Paragraph("Titre de la documentation : " + response.getTitreDocumentation()));
+            doc.add(new Paragraph("Cause racine : " + response.getRootCause()));
+            doc.add(new Paragraph("Actions correctives : " + response.getActions_correctives()));
+            doc.add(new Paragraph("Étapes de résolution : " + response.getEtapeResolution()));
+            doc.add(new Paragraph("Mesures préventives : " + response.getMesuresPreventives()));
+
+            doc.add(new Paragraph("\n"));
+
+            // Section Fichiers joints (juste affichage des noms ou liens)
+            if (response.getFichierJoints() != null && !response.getFichierJoints().isEmpty()) {
+                doc.add(new Paragraph("📎 Fichiers joints").setFontSize(14).setBold());
+                for (String file : response.getFichierJoints()) {
+                    doc.add(new Paragraph("- " + file));
+                }
+            }
+
+            doc.close();
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur lors de la génération du PDF : " + e.getMessage(), e);
+        }
+    }
+
+    private Cell cell(String content) {
+        return new Cell().add(new Paragraph(content)).setPadding(5);
     }
 }
