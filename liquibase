@@ -85,3 +85,34 @@ public byte[] generateStyledPdf(GenerateReportIncidentResponse response) throws 
     doc.close();
     return baos.toByteArray();
 }
+@RestController
+@RequestMapping("/api/reports")
+public class IncidentReportController {
+
+    private final PdfReportService pdfReportService;
+
+    public IncidentReportController(PdfReportService pdfReportService) {
+        this.pdfReportService = pdfReportService;
+    }
+
+    @PostMapping(value = "/incident", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> generateIncidentReport(@RequestBody GenerateReportIncidentResponse response) {
+        try {
+            byte[] pdfBytes = pdfReportService.generateStyledPdf(response);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDisposition(ContentDisposition.builder("attachment")
+                    .filename("rapport_incident_" + LocalDate.now() + ".pdf")
+                    .build());
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(pdfBytes);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(null);
+        }
+    }
+}
