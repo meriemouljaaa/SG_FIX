@@ -9,7 +9,8 @@ const HeaderBar = () => {
     const router = useRouter();
     const hasNotification = true;
     const [open, setOpen] = useState(false);
-    const menuRef = useRef(null);
+    // Typage explicite de useRef comme HTMLDivElement
+    const menuRef = useRef<HTMLDivElement>(null);
 
     const user = {
         name: "Omar Bari",
@@ -17,19 +18,20 @@ const HeaderBar = () => {
         role: "Admin"
     };
 
-    // Extraire les deux premières lettres pour l'avatar
-    const getInitials = (name) => {
+    // Extraire les deux premières lettres pour l'avatar avec types explicites
+    const getInitials = (name: string): string => {
         return name
             .split(" ")
-            .map(word => word[0])
+            .map((word: string) => word[0])
             .join("")
             .slice(0, 2)
             .toUpperCase();
     };
 
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (menuRef.current && !menuRef.current.contains(event.target)) {
+        const handleClickOutside = (event: MouseEvent) => {
+            // Vérification si menuRef.current existe avant d'appeler contains
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 setOpen(false);
             }
         };
