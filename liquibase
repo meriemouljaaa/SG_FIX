@@ -1,400 +1,376 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
+import { useState, useRef } from "react";
+import { Avatar } from "@mui/material";
 import {
-  ArrowUpDown, Download, Search, SlidersHorizontal
-} from "lucide-react";
-import HeaderBar from '../components/HeaderBar';
-import { IncidentStatus } from '@/app/utils/IncidentStatus';
-import { Incident } from '@/app/utils/Incidents';
-import { initialIncidents } from './data';
-import { IncidentCard } from './Incident-card';
-import { IncidentPriority } from '@/app/utils/IncidentPriority';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import Sidebar from '../SideBarComponent/SideBar';
-import IncidentEnCoursPopup from '../incident-en-cours/IncidentEnCoursPopup';
-import { IncidentDetail } from '@/app/models/IncidentDetail';
+  FaFileAlt,
+  FaTimes,
+  FaSyncAlt,
+  FaFilePdf,
+  FaImage,
+  FaCalendarAlt,
+  FaFileDownload,
+} from "react-icons/fa";
+import HeaderBar from "../components/HeaderBar";
+import Sidebar from "../SideBarComponent/SideBar";
+import { IncidentDetail } from "@/app/models/IncidentDetail";
+import { getStatusStyle, IncidentStatus } from "@/app/utils/IncidentStatus";
+import { IncidentGravity } from "@/app/utils/IncidentGravity";
+import { IncidentPriority } from "@/app/utils/IncidentPriority";
+import CommentSection from "./commentSection";
+import IncidentReport from "../rapport-generation/RapportGenerated";
 
-const IncidentAssignment: React.FC = () => {
-  const [incidents, setIncidents] = useState<IncidentDetail []>(initialIncidents || []);
-  const [selectedIncident, setSelectedIncident] = useState<IncidentDetail| null>(null);
-  const [assignee, setAssignee] = useState<string>("");
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [showFilter, setShowFilter] = useState<boolean>(false);
-  const [filterPriority, setFilterPriority] = useState<IncidentPriority | ''>('');
-  const [filterDate, setFilterDate] = useState<string>("");
-  const [isSortedByPriority, setIsSortedByPriority] = useState<boolean>(false);
-   const [isLoading, setIsLoading] = useState(true);
+const currentIncident: IncidentDetail = {
+  id: BigInt(1238957),
+  titre: "Violation de sécurité",
+  description: `
+    Un accès non autorisé a été détecté dans le système de sécurité informatique. Cette violation pourrait potentiellement exposer des données sensibles et perturber les opérations critiques. Une enquête immédiate et des actions de mitigation sont nécessaires pour prévenir une escalade.
+    L'intrus pourrait avoir accédé au système via un mot de passe compromis. Il est crucial de tracer l'origine de la tentative et de sécuriser les systèmes affectés. Une vérification complète des systèmes concernés doit être effectuée pour évaluer les dommages potentiels.
+  `,
+  statutIncident: IncidentStatus.PRIS_EN_CHARGE,
+  gravite: IncidentGravity.CRITIQUE,
+  priorite: IncidentPriority.ELEVEE,
+  dateAttribution: "2025-04-01T09:00:00Z",
+  dateResolution: "",
+  dateDeclaration: "2025-04-01T09:00:00Z",
+  clientSub: "xyzcorp_sub_001",
+  client_fullName: "El Mehdi BOUHLAOUI",
+  client_igg: "xyzcorp_igg_001",
+  client_firstName: "El Mehdi",
+  client_lastName: "BOUHLAOUI",
+  client_mail: "mehdiBouhalaoui@socgen.com",
+  client_role: "Client",
+  client_serviceName: "Sécurité Informatique",
+  coeDevSub: "openr_sub_001",
+  coeDev_firstName: "Ghita",
+  coeDev_lastName: "Boukri",
+  coeDev_fullName: "Ghita Boukri",
+  coeDev_mail: "ghita.boukri@openr.com",
+  coeDev_igg: "openr_igg_001",
+  coeDev_role: "Développeuse Sécurité",
+  coeDev_serviceName: "OpenR",
+  environnement: "DEV",
+  application: "Open R",
+  tags: ["Sécurité", "Urgent", "Confidentiel"],
+  fichierJoints: []
+};
 
-  // Fonction pour obtenir la valeur numérique de la priorité (pour le tri)
-  const priorityValue = (p?: IncidentPriority): number => {
-    if (p === IncidentPriority.ELEVEE) return 3;
-    if (p === IncidentPriority.MOYENNE) return 2;
-    if (p === IncidentPriority.FAIBLE) return 1;
-    return 0;
+export default function DetailedIncidentInfo() {
+  const [activeTab, setActiveTab] = useState("details");
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [documentation, setDocumentation] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [savedFiles, setSavedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const [status, setStatus] = useState(currentIncident.statutIncident);
+  const reportRef = useRef<{ generatePDF: () => void }>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setSelectedFiles(Array.from(e.target.files));
+    }
   };
 
-  const handleAssign = (incident: IncidentDetail) => {
-    setSelectedIncident(incident);
-    setAssignee(incident.client_firstName || "");
-  };
-  React.useEffect(() => {
-  // Simuler le chargement pendant 1 seconde (1000 ms)
-  const timer = setTimeout(() => {
-    setIsLoading(false);
-  }, 1000);
-
-  return () => clearTimeout(timer); // nettoyage
-}, []);
-
-
-  const handleSortByPriority = () => {
-    const sorted = [...incidents].sort((a, b) =>
-      priorityValue(b.priorite) - priorityValue(a.priorite)
-    );
-    setIncidents(sorted);
-    setIsSortedByPriority(true);
+  const handleClick = () => {
+    fileInputRef.current?.click();
   };
 
+  const handleSave = () => {
+    setSavedFiles((prev) => [...prev, ...selectedFiles]);
+    setIsPopupOpen(false);
+    setDocumentation("");
+    setSelectedFiles([]);
+  };
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const incidentsPerPage = 3;
+  const handleCancel = () => {
+    setIsPopupOpen(false);
+    setDocumentation("");
+    setSelectedFiles([]);
+  };
 
-  const filteredIncidents = incidents
-    .filter(i => i.statutIncident !== IncidentStatus.RESOLU)
-    .filter(i =>
-      (!filterPriority || i.priorite === filterPriority) &&
-      (!searchTerm || i.titre.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      (!filterDate || i.dateDeclaration === filterDate)
-    );
+  const handleGenerateReport = () => {
+    if (reportRef.current) {
+      reportRef.current.generatePDF();
+    }
+  };
 
-  const paginatedIncidents = filteredIncidents.slice(
-    (currentPage - 1) * incidentsPerPage,
-    currentPage * incidentsPerPage
-  );
+  const isImage = (file: File) => file.type.startsWith("image/");
 
-  const totalPages = Math.ceil(filteredIncidents.length / incidentsPerPage);
+  const images = savedFiles.filter(isImage);
+  const documents = savedFiles.filter((file) => !isImage(file));
 
   return (
-    <div className="min-h-screen flex flex-col -ml-11">
-      <HeaderBar />
-      <div className="flex flex-1">
-        <div className="w-1/5">
-          <Sidebar />
-        </div>
-        <div className="w-4/5 p-4 -ml-11">
-          <div className="flex justify-between items-center mb-6">
-            <div className="text-center w-full">
-              <h2 className="text-4xl font-bold mb-1 -pl-6 ml-4">Affectation des incidents</h2>
-              <p className="text-gray-600 text-lg">Assignez les incidents aux membres de l'équipe</p>
-            </div>
-            
+    <div className="flex min-h-screen bg-gray-100 text-base">
+      <Sidebar />
+      <div className="flex-1 flex flex-col ml-48"> {/* Added ml-48 to match sidebar width */}
+        <div className="w-full">
+          <HeaderBar />
+          <div className="text-center py-4 px-4">
+            <h1 className="text-2xl font-bold text-gray-800">
+              Gestion détaillée de l’incident
+            </h1>
           </div>
+        </div>
 
-          {/* Barre de recherche et filtres */}
-          <div className="flex space-x-4 mb-4 relative">
-            <div className="relative flex items-center w-full">
-              <Search className="absolute left-3 text-gray-500" size={20} />
-              <input
-                type="text"
-                placeholder="Rechercher un incident..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            <div className="ml-auto flex items-center space-x-4 relative">
-              <button
-                onClick={handleSortByPriority}
-                className="flex items-center gap-2 px-3 py-3 ml-4 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-100 text-gray-700 text-lg font-medium"
-              >
-                <ArrowUpDown size={16} />
-                Trier
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowFilter(!showFilter)}
-                  className="flex items-center gap-2 px-3 py-3 bg-white border border-green-600 rounded-md shadow-sm hover:bg-gray-100 text-green-600 text-lg font-medium"
-                >
-                  <SlidersHorizontal size={16} />
-                  Filtres
-                </button>
+        <div className="flex-1 p-8">
+          <div className="w-full mx-auto min-h-screen">
+            <div className="bg-white p-6 rounded-lg shadow-md mb-6 min-h-[700px]"> {/* Removed ml-14 */}
+              <div className="flex justify-between items-start flex-wrap gap-4">
+                <div className="flex-1 min-w-[300px]">
+                  <h1 className="text-3xl font-bold text-gray-900 flex items-center flex-wrap gap-2">
+                    {currentIncident.titre} –{" "}
+                    <span className="text-gray-700">ID : {currentIncident.id.toString()}</span>
+                  </h1>
+                  <div className="flex items-center text-lg text-gray-700 mt-3 space-x-2">
+                    <FaCalendarAlt className="text-blue-600 text-xl" />
+                    <span className="font-medium">
+                      Déclaré le {new Date(currentIncident.dateDeclaration).toLocaleDateString()}
+                    </span>
+                  </div>
 
-                {showFilter && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white p-4 border border-gray-300 rounded-md shadow-lg z-20">
-                    <label className="block mb-2 text-sm font-medium text-gray-700">Priorité</label>
-                    <select
-                      value={filterPriority}
-                      onChange={(e) => setFilterPriority(e.target.value as IncidentPriority)}
-                      className="w-full p-2 mb-4 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Toutes</option>
-                      <option value={IncidentPriority.ELEVEE}>Élevée</option>
-                      <option value={IncidentPriority.MOYENNE}>Moyenne</option>
-                      <option value={IncidentPriority.FAIBLE}>Faible</option>
-                    </select>
+                  <div className="mt-4 flex flex-wrap items-center gap-4">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusStyle(currentIncident.statutIncident)}`}>
+                      {currentIncident.statutIncident}
+                    </span>
+                    <span className="px-3 py-1 rounded-full text-sm font-medium text-red-700 bg-red-100">
+                      Priorité : {currentIncident.priorite}
+                    </span>
+                    <span className="px-3 py-1 rounded-full text-sm font-medium text-yellow-700 bg-yellow-100">
+                      Gravité : {currentIncident.gravite}
+                    </span>
+                    <span className="px-3 py-1 rounded-full text-sm font-medium">
+                      Application : {currentIncident.application}
+                    </span>
+                    <span className="px-3 py-1 rounded-full text-sm font-medium text-gray-500 bg-gray-100">
+                      <span className="font-bold text-gray-600">Environnement : </span>
+                      <span className="text-gray-800 font-normal">{currentIncident.environnement}</span>
+                    </span>
+                  </div>
+                </div>
 
-                    <label className="block mb-2 text-sm font-medium text-gray-700">Date de déclaration</label>
-                    <input
-                      type="date"
-                      value={filterDate}
-                      onChange={(e) => setFilterDate(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    />
+                <div className="relative group">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="bg-blue-500" sx={{ width: 40, height: 40 }}>
+                      {currentIncident.client_firstName[0] + currentIncident.client_lastName[0]}
+                    </Avatar>
+                    <span className="text-sm font-medium text-gray-700">
+                      {currentIncident.client_fullName}
+                    </span>
+                  </div>
+                  <div className="absolute right-0 mt-2 w-64 bg-white border rounded-lg shadow-md z-50 hidden group-hover:block">
+                    <div className="p-3">
+                      <p className="text-sm font-semibold text-gray-800">
+                        {currentIncident.client_fullName}
+                      </p>
+                      <p className="text-sm text-gray-600"><strong>Sub :</strong> {currentIncident.clientSub}</p>
+                      <p className="text-sm text-gray-600"><strong>IGG :</strong> {currentIncident.client_igg}</p>
+                      <p className="text-sm text-gray-600"><strong>Prénom :</strong> {currentIncident.client_firstName}</p>
+                      <p className="text-sm text-gray-600"><strong>Nom :</strong> {currentIncident.client_lastName}</p>
+                      <p className="text-sm text-gray-600"><strong>Email :</strong> {currentIncident.client_mail}</p>
+                      <p className="text-sm text-gray-600"><strong>Rôle :</strong> {currentIncident.client_role}</p>
+                      <p className="text-sm text-gray-600"><strong>Service :</strong> {currentIncident.client_serviceName}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex mt-4 border-b border-gray-200">
+                {["details", "timeline", "fichiers", "commentaires"].map((tab) => (
+                  <button
+                    key={tab}
+                    className={`px-4 py-2 text-base font-medium text-gray-600 border-b-2 ${
+                      activeTab === tab
+                        ? "border-blue-500 text-blue-700"
+                        : "border-transparent hover:text-gray-800 hover:border-gray-300"
+                    }`}
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    {tab === "details"
+                      ? "Détails"
+                      : tab === "timeline"
+                      ? "Chronologie"
+                      : tab === "fichiers"
+                      ? "Fichiers"
+                      : "Commentaires"}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-6">
+                {activeTab === "details" && (
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-4">Description de l'incident</h3>
+                    <p className="whitespace-pre-line text-gray-700">{currentIncident.description}</p>
+                  </div>
+                )}
+                {activeTab === "timeline" && (
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-4">Chronologie de l'incident</h3>
+                    <p className="text-gray-500">Aucune chronologie disponible pour le moment.</p>
+                  </div>
+                )}
+                {activeTab === "fichiers" && (
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-4">Fichiers et Captures d'écran</h3>
+                    {savedFiles.length === 0 ? (
+                      <p className="text-gray-500">Aucun fichier ou capture d'écran ajouté pour le moment.</p>
+                    ) : (
+                      <div className="space-y-6">
+                        <div>
+                          <h4 className="text-lg font-medium text-gray-800 mb-2">Documents</h4>
+                          {documents.length === 0 ? (
+                            <p className="text-gray-500">Aucun document ajouté.</p>
+                          ) : (
+                            <ul className="space-y-2">
+                              {documents.map((file, index) => (
+                                <li key={index} className="flex items-center gap-3 p-2 border rounded-lg">
+                                  <FaFilePdf className="text-red-600" />
+                                  <span className="text-gray-700">{file.name}</span>
+                                  <span className="text-gray-500 text-sm">
+                                    ({(file.size / 1024).toFixed(2)} KB)
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-medium text-gray-800 mb-2">Captures d'écran</h4>
+                          {images.length === 0 ? (
+                            <p className="text-gray-500">Aucune capture d'écran ajoutée.</p>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                              {images.map((file, index) => (
+                                <div key={index} className="p-2 border rounded-lg">
+                                  <img
+                                    src={URL.createObjectURL(file)}
+                                    alt={file.name}
+                                    className="w-full h-32 object-cover rounded"
+                                  />
+                                  <p className="text-gray-700 mt-2">{file.name}</p>
+                                  <p className="text-gray-500 text-sm">
+                                    ({(file.size / 1024).toFixed(2)} KB)
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {activeTab === "commentaires" && (
+                  <div className="p-6 rounded-lg shadow-md">
+                    <CommentSection />
                   </div>
                 )}
               </div>
+
+              <div className="flex flex-row flex-wrap gap-4 justify-end mt-6">
+                <div className="relative">
+                  <button
+                    className="px-4 py-2 bg-gray-700 text-white rounded-lg flex items-center hover:bg-gray-800"
+                    onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+                  >
+                    <FaSyncAlt className="mr-2" />
+                    Mettre à jour statut
+                  </button>
+                  {isStatusDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-md z-50">
+                      {["TRANSFÉRÉ", "RÉSOLU"].map((option) => (
+                        <button
+                          key={option}
+                          onClick={() => {
+                            setStatus(option);
+                            setIsStatusDropdownOpen(false);
+                          }}
+                          className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items- center"
+                  onClick={() => setIsPopupOpen(true)}
+                >
+                  <FaFileAlt className="mr-2" />
+                  Ajouter Documentation
+                </button>
+                <button
+                  className="px-4 py-2 bg-red-900 text-white rounded-lg hover:bg-red-900 flex items-center"
+                  onClick={handleGenerateReport}
+                >
+                  <FaFileDownload className="mr-2" />
+                  Générer Rapport
+                </button>
+              </div>
             </div>
+
+            <IncidentReport ref={reportRef} incidentData={currentIncident} />
           </div>
-
-            <div className="ml-2 space-y-4">
-  {isLoading ? (
-    <div className="flex justify-center items-center h-48">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-green-600 border-opacity-50"></div>
-      <span className="ml-4 text-gray-600 text-lg">Chargement des incidents...</span>
-    </div>
-  ) : (
-    <>
-      {paginatedIncidents.map((incident) => (
-        <IncidentCard
-          key={incident.id}
-          incident={incident}
-          onAssign={() => handleAssign(incident)}
-        />
-      ))}
-
-      {/* Pagination */}
-      <div className="flex justify-center space-x-4 mt-4">
-        <button
-          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-          disabled={currentPage === 1}
-          className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
-        >
-          Précédent
-        </button>
-        <span className="px-4 py-2 text-gray-700 font-semibold">
-          Page {currentPage} sur {totalPages}
-        </span>
-        <button
-          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-          disabled={currentPage === totalPages}
-          className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
-        >
-          Suivant
-        </button>
-      </div>
-    </>
-  )}
-              </div>
-
-      
-
-          {/* ToastContainer doit être présent une seule fois dans ton app ou dans ce composant */}
-          
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default IncidentAssignment;
-import React, { useState } from "react";
-import {
-  User,
-  FileText,
-  CalendarDays,
-  Wrench,
-  AlertCircle,
-  Cpu,
-} from "lucide-react";
-import { IncidentCardProps } from "@/app/utils/incidentCardProps";
-import { IncidentPriority } from "@/app/utils/IncidentPriority";
-import AssignIncident from "../create-incident/AssignIncident";
-import IncidentEnCoursPopup from "../incident-en-cours/IncidentEnCoursPopup";
-import { IncidentDetail } from "@/app/models/IncidentDetail";
-
-export const IncidentCard: React.FC<IncidentCardProps> = ({ incident, onAssign }) => {
-  const [showMore, setShowMore] = useState(false);
-  const [showAssign, setShowAssign] = useState(false);
-  const [answers, setAnswers] = useState<{ [key: string]: string }>({});
-  const [selectedIncident, setSelectedIncident] = useState<IncidentDetail | null>(null);
-  const [users, setUsers] = useState([]);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null); // État pour l'image sélectionnée
-
-  const handleAnswerChange = (questionId: string, value: string) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: value }));
-  };
-
-  const handleAssign = () => {
-    setShowAssign(false);
-    if (onAssign) onAssign();
-  };
-
-  const handleOpenAssign = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    console.log("ID de l'incident:", incident.titre);
-    console.log("Nom de la personne:", incident.client_fullName || "Inconnu");
-    setShowAssign(true);
-  };
-
-  if (!incident) {
-    return <div className="p-6 text-red-600">Incident data is missing. Please provide an incident object.</div>;
-  }
-
-  const fichierJoints = incident.fichierJoints || []; // Assurez-vous que fichierJoints existe dans incident
-
-  return (
-    <div className="border p-6 rounded-xl shadow-sm w-full bg-white mb-6 flex flex-col justify-between ml-13">
-      <div className="flex-1">
-        <h2 className="text-3xl font-semibold mb-4">
-          #{incident.id.toString()} - {incident.titre}
-        </h2>
-
-        <div className="flex items-center text-base text-gray-600 mb-4 space-x-4">
-          {incident.priorite && (
-            <span className="flex items-center">
-              <AlertCircle className="w-5 h-5 mr-2 text-red-600" />
-              <span className="font-medium mr-2">Priorité :</span>
-              <span
-                className={`px-3 py-1 rounded-full text-sm ${
-                  incident.priorite === IncidentPriority.ELEVEE
-                    ? "bg-red-100 text-red-700"
-                    : incident.priorite === IncidentPriority.MOYENNE
-                    ? "bg-yellow-100 text-yellow-700"
-                    : "bg-green-100 text-green-700"
-                }`}
-              >
-                {incident.priorite}
-              </span>
-            </span>
-          )}
-
-          {incident.environnement && (
-            <span className="flex items-center">
-              <Cpu className="w-5 h-5 mr-2 text-purple-600" />
-              {incident.environnement}
-            </span>
-          )}
-
-          <span className="flex items-center">
-            <User className="w-5 h-5 mr-2 text-blue-600" />
-            Déclaré par : {incident.client_fullName || "Inconnu"}
-          </span>
-
-          <span className="flex items-center">
-            <CalendarDays className="w-5 h-5 mr-2 text-green-600" />
-            {incident.dateDeclaration || "Non spécifiée"}
-          </span>
         </div>
 
-        <div className="flex items-start text-base text-gray-600 mb-4">
-          <FileText className="w-5 h-5 mr-2 mt-1 text-gray-700" />
-          <span className="flex-1">
-            Description : {incident.description || "Aucune description fournie"}
-          </span>
-          {/* Affichage des images à droite de la description */}
-          {fichierJoints && fichierJoints.length > 0 ? (
-            <div className="flex flex-wrap gap-4 ml-4">
-              {fichierJoints.map((base64String, index) => (
-                <img
-                  key={index}
-                  src={`data:image/png;base64,${base64String}`}
-                  alt={`Capture ${index + 1}`}
-                  className="w-32 h-32 object-cover rounded-md border cursor-pointer"
-                  onClick={() => setSelectedImage(base64String)}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 ml-4">Aucun fichier disponible pour le moment.</p>
-          )}
-        </div>
-
-        {showMore && (
-          <>
-            {incident.dateResolution && (
-              <div className="flex items-center text-base text-gray-600 mb-3">
-                <CalendarDays className="w-5 h-5 mr-2 text-green-600" />
-                Date de résolution : {incident.dateResolution}
-              </div>
-            )}
-
-            <div className="flex items-center text-base text-gray-600 mb-3">
-              <Wrench className="w-5 h-5 mr-2 text-orange-600" />
-              Service impacté : {incident.application || "Non spécifié"}
-            </div>
-          </>
-        )}
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowMore(!showMore);
-          }}
-          className="mt-3 text-blue-600 hover:underline text-base font-medium"
-        >
-          {showMore ? "Afficher moins" : "Afficher plus"}
-        </button>
-      </div>
-
-      <div className="mt-6 flex justify-end">
-        <button
-          className="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 text-base"
-          onClick={handleOpenAssign}
-        >
-          Affecter
-        </button>
-      </div>
-
-      {/* Modal plein écran pour l'image */}
-      {selectedImage && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50"
-          onClick={() => setSelectedImage(null)}
-        >
-          <img
-            src={`data:image/png;base64,${selectedImage}`}
-            alt="Full screen"
-            className="max-w-full max-h-full object-contain rounded shadow-lg"
-          />
-        </div>
-      )}
-
-      {showAssign && (
-        <>
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40"
-            onClick={() => setShowAssign(false)}
-          />
-
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl p-6 relative">
+        {isPopupOpen && (
+          < div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white w-full max-w-md p-6 rounded-lg shadow-lg relative">
               <button
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-                onClick={() => setShowAssign(false)}
+                className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+                onClick={handleCancel}
               >
-                ✕
+                <FaTimes />
               </button>
-              <AssignIncident
-                incidentId={incident.id}
-                answers={answers}
-                onAnswerChange={handleAnswerChange}
-                onAssign={handleAssign}
-                onClose={() => setShowAssign(false)}
+              <h2 className="text-xl font-semibold mb-4 text-gray-800">Ajouter une documentation</h2>
+              <textarea
+                value={documentation}
+                onChange={(e) => setDocumentation(e.target.value)}
+                placeholder="Décrivez la documentation associée à cet incident..."
+                className="w-full h-28 p-3 border rounded-md mb-4 resize-none"
               />
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                multiple
+                className="hidden"
+              />
+              <button
+                className="mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                onClick={handleClick}
+              >
+                Ajouter fichiers
+              </button>
+              {selectedFiles.length > 0 && (
+                <ul className="mb-4 space-y-2">
+                  {selectedFiles.map((file, idx) => (
+                    <li key={idx} className="text-gray-700">
+                      {file.name} ({(file.size / 1024).toFixed(2)} KB)
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="flex justify-end space-x-3">
+                <button
+                  className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                  onClick={handleCancel}
+                >
+                  Annuler
+                </button>
+                <button
+                  className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                  onClick={handleSave}
+                >
+                  Enregistrer
+                </button>
+              </div>
             </div>
           </div>
-        </>
-      )}
-
-      {selectedIncident && (
-        <IncidentEnCoursPopup
-          incident={selectedIncident}
-          onClose={() => setSelectedIncident(null)}
-        />
-      )}
+        )}
+      </div>
     </div>
   );
-};
+}
