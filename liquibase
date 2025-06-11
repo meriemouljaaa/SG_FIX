@@ -1,804 +1,175 @@
-import React, { useState } from 'react';
-import {
-  Calendar,
-  ChevronDown,
-  ArrowUpDown,
-  SlidersHorizontal,
-  Search,
-} from 'lucide-react';
-import IncidentTable from './IncidentTable';
-import KpiDashboard from './KpiDashboard';
-import { Incident, IncidentStatus } from '../../utils/TypeIncident';
-import { calculatePriority } from '../../utils/calculatePriority';
-import Sidebar from '../SideBarComponent/SideBar';
-import HeaderBar from '../components/HeaderBar';
-
-export default function IncidentList() {
-  const [incidents] = useState<Incident[]>([
-    {
-      id: 'ID7261',
-      title: 'Problème de sécurité',
-      status: IncidentStatus.DECLARE,
-      du: 'Plateforme Interop',
-      assignedTo: 'Mahmoud Fihri',
-      createdAt: '2025-04-01',
-      impact: 'CRITIQUE',
-      urgency: 'MOYENNE',
-      priority: calculatePriority('CRITIQUE', 'MOYENNE'),
-      dateResolution:'2025-04-04',
-      tags:['sécurité','interop']
-    },
-    {
-      id: 'ID9831',
-      title: 'Panne de réseau',
-      status: IncidentStatus.AFFECTE,
-      du: 'Module OpenR',
-      assignedTo: 'Mehdi BOUHLAOUI',
-      createdAt: '2025-03-30',
-      impact: 'ÉLEVÉ',
-      urgency: 'ÉLEVÉE',
-      priority: calculatePriority('ÉLEVÉ', 'ÉLEVÉE'),
-      dateResolution:'2025-10-30',
-      tags:['réseau','openR']
-    },
-    {
-      id: 'ID3365',
-      title: 'Défaillance base de données',
-      status: IncidentStatus.RESOLU,
-      du: 'Base de données Paiement',
-      assignedTo: 'Keba Deme',
-      createdAt: '2025-03-28',
-      impact: 'MOYEN',
-      urgency: 'FAIBLE',
-      priority: calculatePriority('MOYEN', 'FAIBLE'),
-      dateResolution:'2025-04-04',
-      tags: ['base de données', 'paiement', 'crash'], 
-    },
-  ]);
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<IncidentStatus | ''>(''); 
-  const [dateRange, setDateRange] = useState({ from: '', to: '' });
-  const [showFilter, setShowFilter] = useState(false);
-
-  const filteredIncidents = incidents.filter(
-    (incident) =>
-      incident.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      (filterStatus ? incident.status === filterStatus : true)
-  );
-
-  return (
-    <div className="flex max-h-screen bg-gray-50">
-      <Sidebar />
-        <div className="flex-1 flex flex-col">
-        <HeaderBar />
-    <div className="flex-1 p-4 sm:p-8 ml-52 max-w-[80%] relative">
-        <h1 className="text-2xl font-bold mb-6 text-gray-800 text-center">
-          Liste des incidents
-        </h1>
-
-        <KpiDashboard incidents={filteredIncidents} />
-
-        <div className="flex justify-end mb-3 z-10 relative">
-          <div className="flex items-center gap-3 w-full">
-            {/* 🔧 Barre de recherche élargie */}
-             <div className="relative flex items-center w-full">
-                         <Search className="absolute left-3 text-gray-500" size={20} />
-                         <input
-                           type="text"
-                           placeholder="Rechercher un incident..."
-                           value={searchTerm}
-                           onChange={(e) => setSearchTerm(e.target.value)}
-                           className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                         />
-                       </div>
-            {/* Bouton Sort by */}
-              <button
-                className="flex items-center gap-2 px-3 py-3 ml-4 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-100 text-gray-700 text-lg font-medium"
-              >
-                <ArrowUpDown size={16} />
-                Trier
-              </button>
-            {/* Bouton Filter */}
-          <div className="relative">
-                <button
-                  onClick={() => setShowFilter(!showFilter)}
-                  className="flex items-center gap-2 px-3 py-3 bg-white border rounded-md shadow-sm hover:bg-gray-100 text-black-600 text-lg font-medium"
-                >
-              <SlidersHorizontal size={16} />
-              Filter
-            </button>
-            </div>
-          </div>
-        </div>
-
-        {showFilter && (
-          <div className="absolute top-[160px] right-10 z-20 bg-white p-4 rounded-lg shadow-lg w-full max-w-sm text-sm">
-            <h2 className="text-xl font-semibold mb-3">Filtres</h2>
-
-            <div className="mb-3">
-              <label className="text-gray-700 font-medium">Plage de dates</label>
-              <div className="flex flex-wrap gap-3 mt-1">
-                <div className="relative flex-1 min-w-[140px]">
-                  <Calendar className="absolute left-2.5 top-2.5 text-gray-500" size={16} />
-                  <input
-                    type="date"
-                    className="w-full h-10 pl-9 pr-3 rounded-md border border-gray-300 text-sm"
-                    value={dateRange.from}
-                    onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
-                  />
-                </div>
-                <div className="relative flex-1 min-w-[140px]">
-                  <Calendar className="absolute left-2.5 top-2.5 text-gray-500" size={16} />
-                  <input
-                    type="date"
-                    className="w-full h-10 pl-9 pr-3 rounded-md border border-gray-300 text-sm"
-                    value={dateRange.to}
-                    onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-3">
-              <label className="text-gray-700 font-medium">Statut</label>
-              <div className="relative mt-1">
-                <ChevronDown className="absolute left-2.5 top-2.5 text-gray-500" size={16} />
-                <select
-                  className="w-full h-10 pl-9 pr-3 rounded-md border border-gray-300 text-sm"
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as IncidentStatus | '')}
-                >
-                  <option value="">Tous les statuts</option>
-                  <option value={IncidentStatus.DECLARE}>Déclaré</option>
-                  <option value={IncidentStatus.AFFECTE}>Affecté</option>
-                  <option value={IncidentStatus.EN_COURS_ANALYSE}>En cours d’analyse</option>
-                  <option value={IncidentStatus.TRANSFERE}>Transféré</option>
-                  <option value={IncidentStatus.RESOLU}>Résolu</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-3">
-              <button
-                onClick={() => {
-                  setFilterStatus('');
-                  setDateRange({ from: '', to: '' });
-                }}
-                className="flex-1 py-2 rounded-md bg-gray-200 text-gray-700 font-medium text-sm"
-              >
-                Réinitialiser
-              </button>
-              <button
-                onClick={() => setShowFilter(false)}
-                className="flex-1 py-2 rounded-md bg-green-500 text-white font-medium text-sm"
-              >
-                Appliquer
-              </button>
-            </div>
-          </div>
-        )}
-
-          <IncidentTable incidents={filteredIncidents} />
-      </div>
-    </div>
-        </div>
-  );
-}
-import React, { useState } from 'react';
-import { Incident } from '../../utils/TypeIncident';
-import { getStatusStyle } from '../../utils/styleHelpers';
-import IncidentPopup from './IncidentPopup';
-import { FaUser, FaCalendarAlt, FaFlag, FaInfoCircle, FaHashtag, FaTags } from 'react-icons/fa';
-
-const stringToColor = (str: string) => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const color = `hsl(${hash % 360}, 60%, 60%)`;
-    return color;
-};
-
-interface Props {
-    incidents?: Incident[];
-}
-
-const IncidentTable: React.FC<Props> = ({ incidents = [] }) => {
-    const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
-
-    return (
-        <>
-            <div className="bg-white rounded-xl shadow overflow-x-auto ml-55 max-w-[90%] mt-6">
-                <table className="min-w-full text-left text-gray-700 text-[16px]">
-                    <thead className="bg-gray-100 text-sm uppercase">
-                        <tr>
-                            <th className="p-3"><div className="flex items-center gap-2"><FaHashtag /> ID</div></th>
-                            <th className="p-3"><div className="flex items-center gap-2"><FaInfoCircle /> Titre</div></th>
-                            <th className="p-3"><div className="flex items-center gap-2"><FaUser /> DU</div></th>
-                            <th className="p-3"><div className="flex items-center gap-2"><FaFlag /> Statut</div></th>
-                            <th className="p-3"><div className="flex items-center gap-2"><FaFlag /> Priorité</div></th>
-                            <th className="p-3"><div className="flex items-center gap-2"><FaUser /> Assigné à</div></th>
-                            <th className="p-3"><div className="flex items-center gap-2"><FaCalendarAlt /> Date Création</div></th>
-                            <th className="p-3"><div className="flex items-center gap-2"><FaCalendarAlt /> Date Résolution</div></th>
-                            <th className="p-3"><div className="flex items-center gap-2"><FaTags /> Tags</div></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {incidents.map((incident) => (
-                            <tr
-                                key={incident.id}
-                                onClick={() => setSelectedIncident(incident)}
-                                className="hover:bg-gray-50 transition cursor-pointer border-b"
-                            >
-                                <td className="p-3 font-medium text-gray-700">{incident.id}</td>
-                                <td className="p-3">{incident.title}</td>
-                                <td className="p-3">{incident.du}</td>
-                                <td className="p-3">
-                                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusStyle(incident.status)}`}>
-                                        {incident.status}
-                                    </span>
-                                </td>
-                                <td className="p-3">
-                                    <span
-                                        className="inline-block text-xs font-semibold text-white rounded-full px-2 h-6 flex items-center justify-center whitespace-nowrap"
-                                        style={{
-                                            backgroundColor:
-                                                incident.priority === 'CRITIQUE'
-                                                    ? '#7f1d1d'
-                                                    : incident.priority === 'ÉLEVÉE'
-                                                        ? '#9a3412'
-                                                        : incident.priority === 'MOYENNE'
-                                                            ? '#92400e'
-                                                            : '#6d768f',
-                                        }}
-                                    >
-                                        {incident.priority}
-                                    </span>
-                                </td>
-                                <td className="p-3 flex items-center gap-2">
-                                    <div
-                                        className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
-                                        style={{ backgroundColor: stringToColor(incident.assignedTo) }}
-                                    >
-                                        {incident.assignedTo
-                                            .split(' ')
-                                            .map((n) => n[0])
-                                            .join('')
-                                            .toUpperCase()}
-                                    </div>
-                                    <span>{incident.assignedTo}</span>
-                                </td>
-                                <td className="p-3 whitespace-nowrap">{incident.createdAt}</td>
-                                <td className="p-3 whitespace-nowrap">{incident.dateResolution || '—'}</td>
-                                <td className="p-3">
-                                    <div className="flex flex-row gap-2 flex-wrap items-center">
-                                        {incident.tags && incident.tags.length > 0 ? (
-                                            incident.tags.map((tag, index) => (
-                                                <span
-                                                    key={index}
-                                                    className="text-base bg-yellow-100 text-black-700 px-2 py-0.5 rounded-full whitespace-nowrap"
-                                                >
-                                                    {tag}
-                                                </span>
-                                            ))
-                                        ) : (
-                                            <span className="text-gray-400 italic text-sm">Aucun</span>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {selectedIncident && (
-                <IncidentPopup incident={selectedIncident} onClose={() => setSelectedIncident(null)} />
-            )}
-        </>
-    );
-};
-
-
-export default IncidentTable;
 'use client';
 
 import {
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    Tooltip,
-    ResponsiveContainer,
-    LineChart,
-    Line,
-    PieChart,
-    Pie,
-    Cell,
-    Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
 } from 'recharts';
 
 export default function AdminKpiDashboard() {
-    const statusData = [
-        { name: 'Déclaré', value: 14, color: '#dc2626' },     // red-600
-        { name: 'Affecté', value: 10, color: '#6b7280' },     // gray-500/600
-        { name: 'Résolu', value: 8, color: '#679436' },       // gray-800
-    ];
+  const statusData = [
+    {
+      name: 'Déclaré',
+      value: 14,
+      color: '#F9E9D2',
+      borderColor: '#E7C8A2',
+    },
+    {
+      name: 'Affecté',
+      value: 10,
+      color: '#DCECFB',
+      borderColor: '#B5D4ED',
+    },
+    {
+      name: 'Résolu',
+      value: 8,
+      color: '#DDEEDA',
+      borderColor: '#AACDA2',
+    },
+  ];
 
-    const resolutionTimeTrend = [
-        { name: 'Lun', time: 3.4 },
-        { name: 'Mar', time: 2.8 },
-        { name: 'Mer', time: 4.1 },
-        { name: 'Jeu', time: 3.7 },
-        { name: 'Ven', time: 3.1 },
-    ];
+  const resolutionTimeTrend = [
+    { name: 'Lun', time: 3.4 },
+    { name: 'Mar', time: 2.8 },
+    { name: 'Mer', time: 4.1 },
+    { name: 'Jeu', time: 3.7 },
+    { name: 'Ven', time: 3.1 },
+  ];
 
-    const serviceImpactData = [
-        { name: 'Interop', value: 7, color: '#dc2626' },      // red-600
-        { name: 'Bankup', value: 5, color: '#6b7280' },       // gray-500
-        { name: 'Cockpit', value: 3, color: '#1f2937' },      // gray-800
-    ];
-
-    return (
-        <div className="bg-gray-50 rounded-xl shadow-inner px-4 py-6 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-2">
-                {/* Répartition des statuts */}
-                <div className="bg-white rounded-xl shadow p-4">
-                    <h3 className="text-sm font-medium text-gray-600 mb-2 text-center">Répartition des statuts</h3>
-                    <ResponsiveContainer width="100%" height={200}>
-                        <BarChart data={statusData}>
-                            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 11 }} />
-                            <Tooltip itemStyle={{ fontSize: 11 }} labelStyle={{ fontSize: 11 }} />
-                            <Bar dataKey="value">
-                                {statusData.map((entry, index) => (
-                                    <Cell key={index} fill={entry.color} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-
-                {/* Temps moyen de résolution */}
-                <div className="bg-white rounded-xl shadow p-4">
-                    <h3 className="text-sm font-medium text-gray-600 mb-2 text-center">Temps moyen de résolution (h)</h3>
-                    <ResponsiveContainer width="100%" height={200}>
-                        <LineChart data={resolutionTimeTrend}>
-                            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 11 }} />
-                            <Tooltip itemStyle={{ fontSize: 11 }} labelStyle={{ fontSize: 11 }} />
-                            <Line type="monotone" dataKey="time" stroke="#dc2626" strokeWidth={2} dot={{ r: 3 }} />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </div>
-
-                {/* Top services impactés */}
-                <div className="bg-white rounded-xl shadow p-4">
-                    <h3 className="text-sm font-medium text-gray-600 mb-2 text-center">Top services impactés</h3>
-                    <ResponsiveContainer width="100%" height={200}>
-                        <PieChart>
-                            <Pie
-                                data={serviceImpactData}
-                                dataKey="value"
-                                nameKey="name"
-                                outerRadius={60}
-                                label={{ style: { fontSize: 11 } }}
-                            >
-                                {serviceImpactData.map((entry, index) => (
-                                    <Cell key={index} fill={entry.color} />
-                                ))}
-                            </Pie>
-                            <Legend verticalAlign="bottom" height={30} wrapperStyle={{ fontSize: '11px' }} />
-                            <Tooltip itemStyle={{ fontSize: 11 }} labelStyle={{ fontSize: 11 }} />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-        </div>
-    );
-}
-'use client';
-
-import React, { useState, useMemo } from 'react';
-import HeaderBar from '@/app/view/components/HeaderBar';
-import FilterPopup from './FilterPopup';
-import {
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
-  ArrowUpDown,
-  ListOrdered,
-  FileText,
-  Circle,
-  AlertTriangle,
-  Cpu,
-  User,
-  CalendarDays,
-  SlidersHorizontal,
-} from 'lucide-react';
-import HistoriquePopup from './HistoriquePopup';
-import Sidebar from '../SideBarComponent/SideBar';
-import { IncidentDetail } from '@/app/models/IncidentDetail';
-import { getPriorityStyle, IncidentPriority } from '@/app/utils/IncidentPriority';
-import { KPICards } from './KpiCard';
-import { IncidentStatus } from '@/app/utils/IncidentStatus';
-import { getGravityStyle, IncidentGravity } from '@/app/utils/IncidentGravity';
-
-// Mock data for incidents
-const mockIncidents: IncidentDetail[] = [
-  {
-    id: BigInt(1),
-    titre: 'Panne du serveur principal',
-    description: 'Le serveur principal a cessé de répondre en raison d’une surcharge.',
-    statutIncident: IncidentStatus.AFFECTE,
-    gravite: IncidentGravity.MAJEUR,
-    priorite: IncidentPriority.MOYENNE,
-    dateAttribution: '2025-06-01T09:00:00Z',
-    dateResolution: '2025-06-01T15:00:00Z',
-    dateDeclaration: '2025-06-01T10:00:00Z',
-    clientSub: 'SUB123',
-    client_fullName: 'Jean Dupont',
-    client_igg: 'IGG001',
-    coeDevSub: 'DEV456',
-    environnement: 'Production',
-    application: 'Serveur A',
-    coeDev_firstName: 'Alice',
-    client_serviceName: 'Support Client',
-    coeDev_serviceName: 'Équipe Dev',
-    client_firstName: 'Jean',
-    client_role: 'Administrateur',
-    client_lastName: 'Dupont',
-    client_mail: 'jean.dupont@example.com',
-    coeDev_lastName: 'Smith',
-    coeDev_igg: 'IGG008',
-    coeDev_role: 'Développeur',
-    coeDev_fullName: 'Alice Smith',
-    coeDev_mail: 'alice.smith@example.com',
-    tags: ['serveur', 'urgence', 'surcharge'],
-    fichierJoints: ['log_serveur.txt', 'screenshot.png'],
-  },
-  {
-    id: BigInt(2),
-    titre: 'Erreur de connexion utilisateur',
-    description: 'Les utilisateurs ne peuvent pas se connecter à l’application mobile.',
-    statutIncident: IncidentStatus.AFFECTE,
-    gravite: IncidentGravity.MAJEUR,
-    priorite: IncidentPriority.MOYENNE,
-    dateAttribution: '2025-06-02T13:00:00Z',
-    dateResolution: '',
-    dateDeclaration: '2025-06-02T14:30:00Z',
-    clientSub: 'SUB124',
-    client_fullName: 'Marie Martin',
-    client_igg: 'IGG003',
-    coeDevSub: 'DEV457',
-    environnement: 'Test',
-    application: 'App Mobile',
-    coeDev_firstName: 'Bob',
-    client_serviceName: 'Support Utilisateur',
-    coeDev_serviceName: 'Équipe Mobile',
-    client_firstName: 'Marie',
-    client_role: 'Utilisateur',
-    client_lastName: 'Martin',
-    client_mail: 'marie.martin@example.com',
-    coeDev_lastName: 'Johnson',
-    coeDev_igg: 'IGG004',
-    coeDev_role: 'Développeur Mobile',
-    coeDev_fullName: 'Bob Johnson',
-    coeDev_mail: 'bob.johnson@example.com',
-    tags: ['connexion', 'mobile'],
-    fichierJoints: ['error_log.txt'],
-  },
-  {
-    id: BigInt(3),
-    titre: 'Problème de base de données',
-    description: 'La base de données ne répond pas aux requêtes complexes.',
-    statutIncident: IncidentStatus.AFFECTE,
-    gravite: IncidentGravity.MAJEUR,
-    priorite: IncidentPriority.MOYENNE,
-    dateAttribution: '2025-05-30T08:00:00Z',
-    dateResolution: '',
-    dateDeclaration: '2025-05-30T09:15:00Z',
-    clientSub: 'SUB125',
-    client_fullName: 'Paul Durand',
-    client_igg: 'IGG005',
-    coeDevSub: 'DEV458',
-    environnement: 'Production',
-    application: 'DB Serveur',
-    coeDev_firstName: 'Clara',
-    client_serviceName: 'Support DB',
-    coeDev_serviceName: 'Équipe DB',
-    client_firstName: 'Paul',
-    client_role: 'DBA',
-    client_lastName: 'Durand',
-    client_mail: 'paul.durand@example.com',
-    coeDev_lastName: 'Brown',
-    coeDev_igg: 'IGG006',
-    coeDev_role: 'Administrateur BD',
-    coeDev_fullName: 'Clara Brown',
-    coeDev_mail: 'clara.brown@example.com',
-    tags: ['database', 'performance'],
-    fichierJoints: ['query_log.sql', 'db_report.pdf'],
-  },
-  {
-    id: BigInt(4),
-    titre: 'Bug d’affichage UI',
-    description: 'L’interface utilisateur affiche des éléments mal alignés.',
-    statutIncident: IncidentStatus.AFFECTE,
-    gravite: IncidentGravity.MAJEUR,
-    priorite: IncidentPriority.MOYENNE,
-    dateAttribution: '',
-    dateResolution: '',
-    dateDeclaration: '2025-06-03T08:45:00Z',
-    clientSub: 'SUB126',
-    client_fullName: 'Sophie Lefevre',
-    client_igg: 'IGG007',
-    coeDevSub: 'DEV459',
-    environnement: 'Développement',
-    application: 'Web App',
-    coeDev_firstName: 'David',
-    client_serviceName: 'Support UI',
-    coeDev_serviceName: 'Équipe Frontend',
-    client_firstName: 'Sophie',
-    client_role: 'Testeur',
-    client_lastName: 'Lefevre',
-    client_mail: 'sophie.lefevre@example.com',
-    coeDev_lastName: 'Wilson',
-    coeDev_igg: 'IGG008',
-    coeDev_role: 'Développeur Frontend',
-    coeDev_fullName: 'David Wilson',
-    coeDev_mail: 'david.wilson@example.com',
-    tags: ['ui', 'bug'],
-    fichierJoints: ['screenshot_ui.jpg'],
-  },
-];
-
-const statusLabels: Record<string, string> = {
-  SUBMITTED: 'Soumis',
-  ASSIGNED: 'Affecté',
-  TAKEN_OVER: 'Pris en charge',
-  TRANSFERRED: 'Transféré',
-  RESOLVED: 'Résolu',
-};
-
-export default function HistoriqueIncident() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedIncident, setSelectedIncident] = useState<IncidentDetail | null>(null);
-  const [showPopup, setShowPopup] = useState(false);
-  const [filters, setFilters] = useState<{ status?: string }>({});
-  const [sortPriority, setSortPriority] = useState<string>('');
-  const [page, setPage] = useState(1);
-  const [showFilter, setShowFilter] = useState<boolean>(false);
-  const [filterPriority, setFilterPriority] = useState<IncidentPriority | ''>('');
-  const [filterDate, setFilterDate] = useState<string>("");
-  const sortedIncidents = useMemo(() => {
-    return [...mockIncidents].sort((a, b) =>
-      new Date(b.dateDeclaration).getTime() - new Date(a.dateDeclaration).getTime()
-    );
-  }, []);
-  
-   const priorityValue = (p?: IncidentPriority): number => {
-      if (p === IncidentPriority.ELEVEE) return 3;
-      if (p === IncidentPriority.MOYENNE) return 2;
-      if (p === IncidentPriority.FAIBLE) return 1;
-      return 0;
-    };
-  
-
-
-  const incidentsFiltres = useMemo(() => {
-    let result = sortedIncidents.filter((incident) => {
-      const matchSearch =
-        incident.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        incident.id.toString().toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchStatus = !filters.status || incident.statutIncident === filters.status;
-
-      return matchSearch && matchStatus;
-    });
-
-    if (sortPriority) {
-      result = result.sort(
-        (a, b) =>
-          ['CRITIQUE', 'HAUTE', 'MOYENNE', 'BASSE'].indexOf(a.priorite) -
-          ['CRITIQUE', 'HAUTE', 'MOYENNE', 'BASSE'].indexOf(b.priorite)
-      );
-    }
-
-    return result;
-  }, [filters, searchTerm, sortPriority, sortedIncidents]);
-
-  const incidentsParPage = 5;
-  const paginatedIncidents = incidentsFiltres.slice(
-    (page - 1) * incidentsParPage,
-    page * incidentsParPage
+  const serviceImpactData = [
+    {
+      name: 'Interop',
+      value: 7,
+      color: '#F9E9D2',
+      borderColor: '#C79E6B',
+    },
+    {
+      name: 'Bankup',
+      value: 5,
+      color: '#DCECFB',
+      borderColor: '#94B8DA',
+    },
+    {
+      name: 'Cockpit',
+      value: 3,
+      color: '#DDEEDA',
+      borderColor: '#7FAF7B',
+    },
+  ];
+  const renderLegend = (props: any) => {
+  const { payload } = props;
+  return (
+    <ul className="flex justify-center gap-4 mt-2">
+      {payload.map((entry: any, index: number) => (
+        <li key={`item-${index}`} className="text-xs text-black">
+          <span className="inline-block w-3 h-3 mr-1 rounded" style={{ backgroundColor: entry.color }}></span>
+          {entry.value}
+        </li>
+      ))}
+    </ul>
   );
-  const totalPages = Math.ceil(incidentsFiltres.length / incidentsParPage);
+};
 
 
   return (
-    <div className="flex bg-gray-50 min-h-screen text-[17px]">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <HeaderBar />
-        <main className="p-6 max-w-[100%] mx-auto w-full relative">
-          <h1 className="text-4xl font-bold text-center text-gray-800 mb-4">
-            Historique des incidents
-          </h1>
-          <div className="flex space-x-4 mb-4 relative ml-52 max-w-[80%]">
-            <div className="relative flex items-center w-full">
-              <Search className="absolute left-3 text-gray-500" size={20} />
-              <input
-                type="text"
-                placeholder="Rechercher un incident..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            <div className="ml-auto flex items-center space-x-4 relative">
-              <button
-                className="flex items-center gap-2 px-3 py-3 ml-4 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-100 text-gray-700 text-lg font-medium"
-              >
-                <ArrowUpDown size={16} />
-                Trier
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowFilter(!showFilter)}
-                  className="flex items-center gap-2 px-3 py-3 bg-white border border-black-600 rounded-md shadow-sm hover:bg-gray-100 text-black-600 text-lg font-medium"
-                >
-                  <SlidersHorizontal size={16} />
-                  Filtres
-                </button>
-
-                {showFilter && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white p-4 border border-gray-300 rounded-md shadow-lg z-20">
-                    <label className="block mb-2 text-sm font-medium text-gray-700">Priorité</label>
-                    <select
-                      value={filterPriority}
-                      onChange={(e) => setFilterPriority(e.target.value as IncidentPriority)}
-                      className="w-full p-2 mb-4 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Toutes</option>
-                      <option value={IncidentPriority.ELEVEE}>Élevée</option>
-                      <option value={IncidentPriority.MOYENNE}>Moyenne</option>
-                      <option value={IncidentPriority.FAIBLE}>Faible</option>
-                    </select>
-
-                    <label className="block mb-2 text-sm font-medium text-gray-700">Date de déclaration</label>
-                    <input
-                      type="date"
-                      value={filterDate}
-                      onChange={(e) => setFilterDate(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-         <div className="bg-white rounded-xl shadow overflow-x-auto ml-52 max-w-[80%]">
-            <table className="min-w-full text-left text-gray-700 text-[16px]">
-              <thead className="bg-gray-100 text-sm uppercase">
-                <tr>
-                  <th className="px-6 py-3">
-                    <span className="inline-block align-middle">
-                      <ListOrdered className="w-4 h-4 inline-block mr-2 align-middle" />
-                      ID
-                    </span>
-                  </th>
-                  <th className="px-6 py-3">
-                    <span className="inline-block align-middle">
-                      <FileText className="w-4 h-4 inline-block mr-2 align-middle" />
-                      Titre
-                    </span>
-                  </th>
-                  <th className="px-6 py-3">
-                    <span className="inline-block align-middle">
-                      <Circle className="w-4 h-4 inline-block mr-2 align-middle" />
-                      Statut
-                    </span>
-                  </th>
-                  <th className="px-6 py-3">
-                    <span className="inline-block align-middle">
-                      <AlertTriangle className="w-4 h-4 inline-block mr-2 align-middle" />
-                      Priorité
-                    </span>
-                  </th>
-                  <th className="px-6 py-3">
-                    <span className="inline-block align-middle">
-                      <AlertTriangle className="w-4 h-4 inline-block mr-2 align-middle" />
-                      Gravité
-                    </span>
-                  </th>
-                  <th className="px-6 py-3">
-                    <span className="inline-block align-middle">
-                      <Cpu className="w-4 h-4 inline-block mr-2 align-middle" />
-                      Application
-                    </span>
-                  </th>
-                  <th className="px-6 py-3">
-                    <span className="inline-block align-middle">
-                      <User className="w-4 h-4 inline-block mr-2 align-middle" />
-                      Déclaré par
-                    </span>
-                  </th>
-                  <th className="px-6 py-3">
-                    <span className="inline-block align-middle">
-                      <CalendarDays className="w-4 h-4 inline-block mr-2 align-middle" />
-                      Date
-                    </span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedIncidents.map((incident) => (
-                  <tr
-                    key={incident.id.toString()}
-                    className="hover:bg-gray-50 cursor-pointer border-b"
-                    onClick={() => setSelectedIncident(incident)}
-                  >
-                    <td className="px-6 py-4 font-medium">{incident.id.toString()}</td>
-                    <td className="px-6 py-4">{incident.titre}</td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-gray-200 text-sm font-medium text-gray-800">
-                         {statusLabels[incident.statutIncident] || incident.statutIncident}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 text-sm font-medium rounded-full ${getPriorityStyle(incident.priorite)}`}>
-                        {incident.priorite}
-                      </span>
-                    </td>
-                   <td className="px-6 py-4">
-                      <span className={`px-3 py-1 text-sm font-medium rounded-full ${getGravityStyle(incident.gravite)}`}>
-                        {incident.gravite}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">{incident.application}</td>
-                    <td className="px-6 py-4">{incident.client_fullName}</td>
-                    <td className="px-6 py-4">{incident.dateDeclaration}</td>
-                  </tr>
+    <div className="bg-gray-50 rounded-xl shadow-inner px-4 py-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-2">
+        {/* Répartition des statuts */}
+        <div className="bg-white rounded-xl shadow p-4">
+          <h3 className="text-sm font-medium text-gray-600 mb-2 text-center">
+            Répartition des statuts
+          </h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={statusData}>
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip itemStyle={{ fontSize: 11 }} labelStyle={{ fontSize: 11 }} />
+              <Bar dataKey="value">
+                {statusData.map((entry, index) => (
+                  <Cell
+                    key={index}
+                    fill={entry.color}
+                    stroke={entry.borderColor}
+                    strokeWidth={2}
+                  />
                 ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex justify-between items-center mt-6 ml-8 max-w-[80%]">
-            <button
-              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-              disabled={page === 1}
-              className={`flex items-center gap-2 px-4 py-2 border rounded ${
-                page === 1
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Précédent
-            </button>
-            <span className="text-gray-700">Page {page} sur {totalPages}</span>
-            <button
-              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-              disabled={page === totalPages}
-              className={`flex items-center gap-2 px-4 py-2 border rounded ${
-                page === totalPages
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Suivant
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-          {selectedIncident && (
-            <HistoriquePopup
-              incident={selectedIncident}
-              onClose={() => setSelectedIncident(null)}
-            />
-          )}
-        </main>
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Temps moyen de résolution */}
+        <div className="bg-white rounded-xl shadow p-4">
+          <h3 className="text-sm font-medium text-gray-600 mb-2 text-center">
+            Temps moyen de résolution (h)
+          </h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={resolutionTimeTrend}>
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip itemStyle={{ fontSize: 11 }} labelStyle={{ fontSize: 11 }} />
+              <Line
+                type="monotone"
+                dataKey="time"
+                stroke="#6B7280"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Top services impactés */}
+     <div className="bg-white rounded-xl shadow p-4">
+            <h3 className="text-sm font-medium text-red-600 mb-2 text-center">
+                Top services impactés
+            </h3>
+                <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                    <Pie
+                        data={serviceImpactData}
+                        dataKey="value"
+                        nameKey="name"
+                        outerRadius={60}
+                        label={({ name, value }) => `${name} (${value})`}
+                        labelLine={false}
+                    >
+                        {serviceImpactData.map((entry, index) => (
+                        <Cell
+                            key={index}
+                            fill={entry.color}
+                            stroke={entry.borderColor}
+                            strokeWidth={3}
+                        />
+                        ))}
+                    </Pie>
+
+                    {/* ✅ Légende en bas avec texte en noir */}
+                   <Legend
+                        verticalAlign="bottom"
+                        height={30}
+                        content={renderLegend}
+                        />
+
+
+                    {/* ✅ Tooltip en rouge */}
+                    <Tooltip
+                        itemStyle={{ fontSize: 11, color: '#dc2626' }}
+                        labelStyle={{ fontSize: 11, color: '#dc2626' }}
+                    />
+                    </PieChart>
+                </ResponsiveContainer>
+                </div>
+
       </div>
     </div>
   );
