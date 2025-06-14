@@ -1,135 +1,188 @@
-import React, { useState, useEffect } from 'react';
-import HeaderBar from '@/app/view/components/HeaderBar';
-import KPIPage from './KPIPage';
-import DashboardPage from './DashboardPage';
-import { FaSearch } from 'react-icons/fa';
-import Sidebar from '../SideBarComponent/SideBar';
-import { IncidentPriority } from '@/app/utils/IncidentPriority';
-import { ArrowUpDown, Search, SlidersHorizontal } from 'lucide-react';
+'use client';
 
-const theme = {
-  textPrimary: 'text-black',
-  subtleText: 'text-gray-400',
-  whiteContainer: 'bg-white rounded-lg p-4 shadow-md',
+import React from 'react';
+import { Pie, Bar, Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  ArcElement,
+  BarElement,
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+
+ChartJS.register(ArcElement, BarElement, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend);
+
+// Palette professionnelle
+const palette = {
+  blue: '#374158',
+  green: '#4B5943',
+  yellow: '#BC632E',
+  orange: '#7F5056',
+  red: '#EF4444',
+  grayDark: '#4B5563',
+  gray: '#9CA3AF',
+  grayLight: '#9E9F8D',
+  white: '#FFFFFF',
+  black: '#111827',
 };
 
-const MainDashboard = () => {
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [showFilter, setShowFilter] = useState<boolean>(false);
-  const [filterPriority, setFilterPriority] = useState<IncidentPriority | ''>('');
-  const [filterDate, setFilterDate] = useState<string>('');
-  const [filterEnvironment, setFilterEnvironment] = useState<string>('');
-  const [filterClient, setFilterClient] = useState<string>('');
-  const [isSortedByPriority, setIsSortedByPriority] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState(true);
+const chartLegend = {
+  position: 'bottom' as const,
+  align: 'end' as const,
+  labels: {
+    color: palette.grayDark,
+    font: { size: 13 },
+  },
+};
 
-  const priorityValue = (p?: IncidentPriority): number => {
-    if (p === IncidentPriority.ELEVEE) return 3;
-    if (p === IncidentPriority.MOYENNE) return 2;
-    if (p === IncidentPriority.FAIBLE) return 1;
-    return 0;
+const chartOptionsBarOrLine = {
+  responsive: true,
+  maintainAspectRatio: false,
+  scales: {
+    y: {
+      beginAtZero: true,
+      ticks: { color: palette.black, font: { size: 14 } },
+      grid: { display: false },
+    },
+    x: {
+      ticks: { color: palette.black, font: { size: 14 } },
+      grid: { display: false },
+    },
+  },
+  plugins: {
+    legend: chartLegend,
+    tooltip: {
+      backgroundColor: palette.grayLight,
+      titleColor: palette.black,
+      bodyColor: palette.grayDark,
+      borderColor: palette.gray,
+      borderWidth: 1,
+    },
+  },
+};
+
+// Données
+const DashboardPage = () => {
+  const periodData = {
+    labels: ['Semaine 1', 'Semaine 2', 'Semaine 3', 'Semaine 4'],
+    datasets: [{
+      label: "Nombre d'Incidents",
+      data: [10, 25, 35, 40],
+      backgroundColor: palette.blue,
+    }],
   };
 
+  const criticalityData = {
+    labels: ['Critique', 'Haute', 'Modérée', 'Basse'],
+    datasets: [{
+      label: 'Impact',
+      data: [15, 25, 40, 70],
+      backgroundColor: [palette.red, palette.orange, palette.yellow, palette.gray],
+    }],
+  };
+
+  const duData = {
+    labels: ['Bill Payment', 'Bankup', 'Interop', 'OpenR', 'Cockpit'],
+    datasets: [{
+      label: 'Incidents par DU',
+      data: [50, 35, 65, 30, 40],
+      backgroundColor: [
+        palette.blue,
+        palette.green,
+        palette.orange,
+        palette.yellow,
+        palette.gray,
+      ],
+    }],
+  };
+
+  const resolutionTimeData = {
+    labels: ['Semaine 1', 'Semaine 2', 'Semaine 3', 'Semaine 4'],
+    datasets: [{
+      label: 'Temps Moyen (heures)',
+      data: [12, 8, 15, 10],
+      borderColor: palette.grayLight,
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      tension: 0.4,
+    }],
+  };
+
+  const servicesData = {
+    labels: ['Interop', 'Bill Payment', 'OpenR', 'Bankup'],
+    datasets: [{
+      label: "Nombre d'Incidents",
+      data: [30, 45, 20, 15],
+      backgroundColor: [
+        palette.orange,
+        palette.green,
+        palette.yellow,
+        palette.red,
+      ],
+    }],
+  };
+
+  const environmentData = {
+    labels: ['DEV', 'HT', 'HF'],
+    datasets: [{
+      data: [60, 25, 15],
+      backgroundColor: [
+        palette.blue,
+        palette.gray,
+        palette.green,
+      ],
+    }],
+  };
+
+  const stabilizationData = {
+    labels: ['Semaine 1', 'Semaine 2', 'Semaine 3', 'Semaine 4'],
+    datasets: [{
+      label: 'Incidents en Production',
+      data: [5, 10, 8, 12],
+      backgroundColor: palette.red,
+    }],
+  };
+
+  const creationMethodData = {
+    labels: ['Automatique', 'Manuel'],
+    datasets: [{
+      data: [70, 30],
+      backgroundColor: [palette.green, palette.orange],
+    }],
+  };
+
+  // Rendu
   return (
-    <div className="flex min-h-screen bg-white">
-      <Sidebar />
-      <div className="flex-1 ml-[48px] flex flex-col">
-        <HeaderBar />
-        <main className="flex-1 p-6 md:p-8 bg-gray-50 overflow-auto">
-          <div className="text-center mb-8">
-            <h2 className="text-xl md:text-2xl font-semibold text-black mb-1">Tableau de bord</h2>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-black">Suivi des incidents</h1>
-          </div>
+    <div className="min-h-screen ml-52 w-[calc(100vw-48px)] p-6 bg-gray-50 overflow-x-hidden">
+      <div className="bg-white rounded-xl shadow-md border border-gray-300 p-6">
+        <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">Tableau de Bord — Incidents</h2>
 
-          <KPIPage />
-
-          <div className="flex space-x-4 mb-4 relative">
-            <div className="relative flex items-center w-full ml-52 mr-2 w-[calc(100vw-48px)]">
-              <Search className="absolute left-3 text-gray-500" size={20} />
-              <input
-                type="text"
-                placeholder="Rechercher un incident..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-3 border border-gray-300 rounded-md text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-black-500"
-              />
-            </div>
-            <div className="ml-auto flex items-center space-x-4 relative">
-              <button
-                className="flex items-center gap-2 px-3 py-3 ml-4 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-100 text-gray-700 text-lg font-medium"
-              >
-                <ArrowUpDown size={16} />
-                Trier
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowFilter(!showFilter)}
-                  className="flex items-center gap-2 px-3 py-3 bg-white border border-black-600 rounded-md shadow-sm hover:bg-gray-100 text-black-600 text-lg font-medium"
-                >
-                  <SlidersHorizontal size={16} />
-                  Filtres
-                </button>
-
-                {showFilter && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white p-4 border border-gray-300 rounded-md shadow-lg z-20">
-                    {/* Priorité */}
-                    <label className="block mb-2 text-sm font-medium text-gray-700">Priorité</label>
-                    <select
-                      value={filterPriority}
-                      onChange={(e) => setFilterPriority(e.target.value as IncidentPriority)}
-                      className="w-full p-2 mb-4 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Toutes</option>
-                      <option value={IncidentPriority.ELEVEE}>Élevée</option>
-                      <option value={IncidentPriority.MOYENNE}>Moyenne</option>
-                      <option value={IncidentPriority.FAIBLE}>Faible</option>
-                    </select>
-
-                    {/* Date */}
-                    <label className="block mb-2 text-sm font-medium text-gray-700">Date de déclaration</label>
-                    <input
-                      type="date"
-                      value={filterDate}
-                      onChange={(e) => setFilterDate(e.target.value)}
-                      className="w-full p-2 mb-4 border border-gray-300 rounded-md"
-                    />
-
-                    {/* Environnement */}
-                    <label className="block mb-2 text-sm font-medium text-gray-700">Environnement</label>
-                    <select
-                      value={filterEnvironment}
-                      onChange={(e) => setFilterEnvironment(e.target.value)}
-                      className="w-full p-2 mb-4 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Tous</option>
-                      <option value="production">Production</option>
-                      <option value="préproduction">Préproduction</option>
-                      <option value="développement">Développement</option>
-                    </select>
-
-                    {/* Use Client */}
-                    <label className="block mb-2 text-sm font-medium text-gray-700">Use Client</label>
-                    <select
-                      value={filterClient}
-                      onChange={(e) => setFilterClient(e.target.value)}
-                      className="w-full p-2 mb-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Tous</option>
-                      <option value="ClientA">Client A</option>
-                      <option value="ClientB">Client B</option>
-                      <option value="ClientC">Client C</option>
-                    </select>
-                  </div>
-                )}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[
+            { title: 'Incidents par Période', content: <Bar data={periodData} options={chartOptionsBarOrLine} /> },
+            { title: 'Incidents par Criticité', content: <Bar data={criticalityData} options={chartOptionsBarOrLine} /> },
+            { title: 'Incidents par DU', content: <Bar data={duData} options={chartOptionsBarOrLine} /> },
+            { title: 'Temps de Résolution', content: <Line data={resolutionTimeData} options={chartOptionsBarOrLine} /> },
+            { title: 'Services les Plus Concernés', content: <Pie data={servicesData} options={{ plugins: { legend: chartLegend } }} /> },
+            { title: 'Incidents par Environnement', content: <Pie data={environmentData} options={{ plugins: { legend: chartLegend } }} /> },
+            { title: 'Incidents Production (Stabilisation)', content: <Line data={stabilizationData} options={chartOptionsBarOrLine} /> },
+            { title: 'Création Auto vs Manuel', content: <Pie data={creationMethodData} options={{ plugins: { legend: chartLegend } }} /> },
+          ].map(({ title, content }, idx) => (
+            <div key={idx} className="bg-white shadow-md p-4 rounded-lg border border-gray-200">
+              <h3 className="text-xl font-semibold text-center text-gray-800 mb-4">{title}</h3>
+              <div className="h-64 flex justify-center items-center max-w-full overflow-hidden">
+                {content}
               </div>
             </div>
-          </div>
-
-          <DashboardPage />
-        </main>
+          ))}
+        </div>
       </div>
     </div>
   );
 };
 
-export default MainDashboard;
+export default DashboardPage;
