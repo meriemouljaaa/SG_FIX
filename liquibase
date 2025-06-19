@@ -58,16 +58,14 @@ export default function Sidebar() {
   const router = useRouter();
   const [userRole, setUserRole] = useState<string | null>(null);
 
-  // Simuler la récupération du rôle de l'utilisateur (remplacez par votre logique d'authentification)
+  // Simuler la récupération du rôle de l'utilisateur
   useEffect(() => {
-    // Exemple : Récupérer le rôle depuis localStorage, contexte, ou API
     const role = localStorage.getItem("userRole") || ROLES.API_USER; // Par défaut API_USER
     setUserRole(role);
   }, []);
 
   const handleLogout = () => {
-    // Logique de déconnexion (effacer token, rediriger, etc.)
-    localStorage.removeItem("userRole"); // Exemple
+    localStorage.removeItem("userRole");
     router.push("/login");
   };
 
@@ -75,21 +73,23 @@ export default function Sidebar() {
     router.push(path);
   };
 
+  // Vérification que userRole existe et que les permissions sont définies
+  const permissions = userRole ? rolePermissions[userRole] : [];
+
   return (
     <div className="bg-red-600 fixed top-0 left-0 z-10 text-white h-screen w-48 flex flex-col justify-between p-4">
       {/* Menu icons */}
       <nav className="flex flex-col space-y-6 mt-24">
-        {userRole &&
-          rolePermissions[userRole].map((item, index) => (
-            <div
-              key={index}
-              onClick={() => handleNavigation(item.path)}
-              className="flex items-center space-x-3 text-white cursor-pointer hover:scale-105 transition-all"
-            >
-              <div>{item.icon}</div>
-              <span className="text-[16px]">{item.label}</span>
-            </div>
-          ))}
+        {permissions.map((item, index) => (
+          <div
+            key={index}
+            onClick={() => handleNavigation(item.path)}
+            className="flex items-center space-x-3 text-white cursor-pointer hover:scale-105 transition-all"
+          >
+            <div>{item.icon}</div>
+            <span className="text-[16px]">{item.label}</span>
+          </div>
+        ))}
       </nav>
 
       {/* Logout button */}
