@@ -1,107 +1,209 @@
-"use client";
+import requests
+import time
+import datetime
+import re
+from tabulate import tabulate
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import {
-  FaSearch,
-  FaCalendarCheck,
-  FaBell,
-  FaServer,
-  FaChartPie,
-  FaTasks,
-  FaUsers,
-  FaQuestionCircle,
-  FaCloudSun,
-  FaSignOutAlt,
-} from "react-icons/fa";
+LOKI_URL = "http://localhost:3100/loki/api/v1/query_range"
+OUTPUT_FILE = "loki_logs.txt"
 
-// Définir les rôles possibles
-const ROLES = {
-  API_USER: "apiUser",
-  BUSINESS_ANALYST: "ba",
-  DEVELOPER: "developer",
-  ADMIN: "admin",
-};
+def is_incident(log_line):
+    return any(keyword in log_line.lower() for keyword in [
+        "exception", "error", "failed", "unknownhost", "refused", "timed out"
+    ])
 
-const rolePermissions = {
-  [ROLES.API_USER]: [
-    { icon: <FaSearch size={20} />, label: "Search", path: "/view/incidents-details" },
-    { icon: <FaTasks size={20} />, label: "Incidents", path: "/view/incident-list" },
-    { icon: <FaCalendarCheck size={20} />, label: "Follow Status", path: "/view/status-tracking" },
-    { icon: <FaBell size={20} />, label: "Notifications", path: "/view/notification-page" },
-    { icon: <FaCloudSun size={20} />, label: "API Weather", path: "/view/api-meteo" },
-  ],
-  [ROLES.BUSINESS_ANALYST]: [
-    { icon: <FaSearch size={20} />, label: "Search", path: "/view/incidents-details" },
-    { icon: <FaTasks size={20} />, label: "Incidents", path: "/view/incident-list" },
-    { icon: <FaServer size={20} />, label: "Assign Incident", path: "/view/assign-incident" },
-    { icon: <FaCalendarCheck size={20} />, label: "Follow Status", path: "/view/status-tracking" },
-    { icon: <FaBell size={20} />, label: "Notifications", path: "/view/notification-page" },
-    { icon: <FaUsers size={20} />, label: "Employees", path: "/view/employees-dashboard" },
-  ],
-  [ROLES.DEVELOPER]: [
-    { icon: <FaTasks size={20} />, label: "Incidents", path: "/view/incident-list" },
-    { icon: <FaCalendarCheck size={20} />, label: "Take Charge", path: "/view/take-charge" },
-    { icon: <FaServer size={20} />, label: "Update Status", path: "/view/update-status" },
-    { icon: <FaBell size={20} />, label: "Notifications", path: "/view/notification-page" },
-  ],
-  [ROLES.ADMIN]: [
-    { icon: <FaSearch size={20} />, label: "Search", path: "/view/incidents-details" },
-    { icon: <FaTasks size={20} />, label: "Incidents", path: "/view/incident-list" },
-    { icon: <FaUsers size={20} />, label: "Manage Roles", path: "/view/manage-roles" },
-    { icon: <FaChartPie size={20} />, label: "Dashboard", path: "/view/dashboards" },
-    { icon: <FaBell size={20} />, label: "Notifications", path: "/view/notification-page" },
-  ],
-};
+def parse_log_line(log_line):
+    # Exemple brut : 2025-06-21T23:14:25.140Z ERROR 1 --- [xxx] message
+    pattern = r"^(?P<time>[\d\-T:\.Z]+)\s+(?P<level>[A-Z]+)\s+.*?\]\s+(?P<msg>.*)$"
+    match = re.match(pattern, log_line)
+    if match:
+        return {
+            "time": match.group("time"),
+            "level": match.group("level"),
+            "message": match.group("msg")[:120],  # tronqué si trop long
+            "incident": "🚨" if is_incident(log_line) else ""
+        }
+    return {
+        "time": "N/A",
+        "level": "N/A",
+        "message": log_line[:120],
+        "incident": "🚨" if is_incident(log_line) else ""
+    }
 
-export default function Sidebar() {
-  const router = useRouter();
-  const [userRole, setUserRole] = useState<string | null>(null);
+def get_logs():
+    now = int(time.time() * 1_000_000_000)
+    start = now - 60 * 1_000_000_000
+    query = '{service_name="observability-spring-grafana"}'
 
-  // Simuler la récupération du rôle de l'utilisateur
-  useEffect(() => {
-    const role = localStorage.getItem("userRole") || ROLES.API_USER; // Par défaut API_USER
-    setUserRole(role);
-  }, []);
+    params = {
+        "query": query,
+        "start": start,
+        "end": now,
+        "limit": 100,
+        "direction": "forward"
+    }
 
-  const handleLogout = () => {
-    localStorage.removeItem("userRole");
-    router.push("/login");
-  };
+    try:
+        response = requests.get(LOKI_URL, params=params)
+        response.raise_for_status()
+        data = response.json()
+        logs = []
 
-  const handleNavigation = (path: string) => {
-    router.push(path);
-  };
+        for stream in data.get("data", {}).get("result", []):
+            for entry in stream.get("values", []):
+                message = entry[1]
+                log = parse_log_line(message)
+                logs.append(log)
 
-  // Vérification que userRole existe et que les permissions sont définies
-  const permissions = userRole ? rolePermissions[userRole] : [];
+        return logs
 
-  return (
-    <div className="bg-red-600 fixed top-0 left-0 z-10 text-white h-screen w-48 flex flex-col justify-between p-4">
-      {/* Menu icons */}
-      <nav className="flex flex-col space-y-6 mt-24">
-        {permissions.map((item, index) => (
-          <div
-            key={index}
-            onClick={() => handleNavigation(item.path)}
-            className="flex items-center space-x-3 text-white cursor-pointer hover:scale-105 transition-all"
-          >
-            <div>{item.icon}</div>
-            <span className="text-[16px]">{item.label}</span>
-          </div>
-        ))}
-      </nav>
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Erreur de requête Loki : {e}")
+        return []
 
-      {/* Logout button */}
-      <div className="mt-6">
-        <div
-          onClick={handleLogout}
-          className="flex items-center space-x-3 text-white cursor-pointer hover:scale-105 transition-all"
-        >
-          <div><FaSignOutAlt size={20} /></div>
-          <span className="text-[16px]">Logout</span>
-        </div>
-      </div>
-    </div>
-  );
-}
+def display_table(logs):
+    headers = ["time", "level", "incident", "message"]
+    table = [[log["time"], log["level"], log["incident"], log["message"]] for log in logs]
+    print(tabulate(table, headers=headers, tablefmt="fancy_grid"))
+
+def run_loop():
+    print("📡 Démarrage de la récupération des logs Loki...\n")
+    while True:
+        logs = get_logs()
+        if logs:
+            print(f"✅ {len(logs)} logs récupérés\n")
+            display_table(logs)
+        else:
+            print("⚠️ Aucun log trouvé.")
+        time.sleep(10)
+
+if __name__ == "__main__":
+    run_loop()
+
+
+
+
+
+
+------------------------------------------------
+import requests
+import time
+
+TEMPO_BASE_URL = "http://localhost:3200"
+HEADERS = {"Content-Type": "application/json"}
+
+def list_traces(limit=10):
+    url = f"{TEMPO_BASE_URL}/api/search"
+
+    now_ns = int(time.time() * 1_000_000_000)
+    five_minutes_ago_ns = now_ns - 5 * 60 * 1_000_000_000
+
+    payload = {
+        "start": five_minutes_ago_ns,
+        "end": now_ns,
+        "limit": limit,
+        "lookback": "5m",
+        "serviceName": "",
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=HEADERS)
+        response.raise_for_status()
+        traces = response.json().get("traces", [])
+
+        if traces:
+            print(f"\n✅ {len(traces)} traces trouvées :\n")
+        for trace in traces:
+            trace_id = trace.get("traceID")
+            service = trace.get("rootServiceName")
+            print(f"🧵 TraceID: {trace_id} | Service: {service}")
+            fetch_trace_details(trace_id)
+            print("-" * 60)
+
+    except Exception as e:
+        print(f"❌ Erreur récupération des traces : {e}")
+
+def fetch_trace_details(trace_id):
+    url = f"{TEMPO_BASE_URL}/api/traces/{trace_id}"
+    try:
+        response = requests.get(url, headers=HEADERS)
+        response.raise_for_status()
+        data = response.json()
+
+        batches = data.get("batches", [])
+        for batch in batches:
+            scope_spans = batch.get("scopeSpans", [])
+            for scope in scope_spans:
+                spans = scope.get("spans", [])
+                for span in spans:
+                    name = span.get("name", "N/A")
+                    attributes = span.get("attributes", [])
+                    
+                    method = uri = status = http_url = exception = outcome = None
+
+                    for attr in attributes:
+                        key = attr.get("key", "")
+                        val = attr.get("value", {}).get("stringValue", "")
+
+                        if key == "method":
+                            method = val
+                        elif key == "uri":
+                            uri = val
+                        elif key == "status":
+                            status = val
+                        elif key == "http.url":
+                            http_url = val
+                        elif key == "exception":
+                            exception = val
+                        elif key == "outcome":
+                            outcome = val
+
+                    print(f"   ➤ Span: {name}")
+                    print(f"      • Method     : {method}")
+                    print(f"      • URI        : {uri}")
+                    print(f"      • Status     : {status}")
+                    print(f"      • HTTP URL   : {http_url}")
+                    print(f"      • Outcome    : {outcome}")
+                    print(f"      • Exception  : {exception}")
+
+    except Exception as e:
+        print(f"❌ Erreur détails trace {trace_id} : {e}")
+
+if __name__ == "__main__":
+    print("📡 Surveillance en temps réel des traces Tempo...\n")
+    seen_traces = set()
+    while True:
+        try:
+            url = f"{TEMPO_BASE_URL}/api/search"
+
+            now_ns = int(time.time() * 1_000_000_000)
+            one_min_ago_ns = now_ns - 60 * 1_000_000_000
+
+            payload = {
+                "start": one_min_ago_ns,
+                "end": now_ns,
+                "limit": 20,
+                "lookback": "1m"
+            }
+
+            response = requests.post(url, json=payload, headers=HEADERS)
+            response.raise_for_status()
+            traces = response.json().get("traces", [])
+
+            for trace in traces:
+                trace_id = trace.get("traceID")
+                if trace_id not in seen_traces:
+                    seen_traces.add(trace_id)
+                    service = trace.get("rootServiceName")
+                    print(f"\n🧵 Nouvelle trace: {trace_id} | Service: {service}")
+                    fetch_trace_details(trace_id)
+                    print("-" * 60)
+
+            time.sleep(10)
+
+        except KeyboardInterrupt:
+            print("\n🛑 Arrêt manuel.")
+            break
+        except Exception as e:
+            print(f"❌ Erreur boucle principale : {e}")
+            time.sleep(5)
