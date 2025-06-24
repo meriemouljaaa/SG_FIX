@@ -1,11 +1,8 @@
 import requests
 import time
-import datetime
 import re
-from tabulate import tabulate
 
 LOKI_URL = "http://localhost:3100/loki/api/v1/query_range"
-OUTPUT_FILE = "loki_logs.txt"
 
 def is_incident(log_line):
     return any(keyword in log_line.lower() for keyword in [
@@ -20,7 +17,7 @@ def parse_log_line(log_line):
         return {
             "time": match.group("time"),
             "level": match.group("level"),
-            "message": match.group("msg")[:120],  # tronqué si trop long
+            "message": match.group("msg")[:120],
             "incident": "🚨" if is_incident(log_line) else ""
         }
     return {
@@ -61,149 +58,21 @@ def get_logs():
         print(f"❌ Erreur de requête Loki : {e}")
         return []
 
-def display_table(logs):
-    headers = ["time", "level", "incident", "message"]
-    table = [[log["time"], log["level"], log["incident"], log["message"]] for log in logs]
-    print(tabulate(table, headers=headers, tablefmt="fancy_grid"))
+def display_logs(logs):
+    print("\n📋 Logs récupérés :\n")
+    for log in logs:
+        print(f"[{log['time']}] [{log['level']}] {log['incident']} {log['message']}")
 
 def run_loop():
     print("📡 Démarrage de la récupération des logs Loki...\n")
     while True:
         logs = get_logs()
         if logs:
-            print(f"✅ {len(logs)} logs récupérés\n")
-            display_table(logs)
+            print(f"\n✅ {len(logs)} logs récupérés")
+            display_logs(logs)
         else:
             print("⚠️ Aucun log trouvé.")
         time.sleep(10)
 
 if __name__ == "__main__":
     run_loop()
-
-
-
-
-
-
-------------------------------------------------
-import requests
-import time
-
-TEMPO_BASE_URL = "http://localhost:3200"
-HEADERS = {"Content-Type": "application/json"}
-
-def list_traces(limit=10):
-    url = f"{TEMPO_BASE_URL}/api/search"
-
-    now_ns = int(time.time() * 1_000_000_000)
-    five_minutes_ago_ns = now_ns - 5 * 60 * 1_000_000_000
-
-    payload = {
-        "start": five_minutes_ago_ns,
-        "end": now_ns,
-        "limit": limit,
-        "lookback": "5m",
-        "serviceName": "",
-    }
-
-    try:
-        response = requests.post(url, json=payload, headers=HEADERS)
-        response.raise_for_status()
-        traces = response.json().get("traces", [])
-
-        if traces:
-            print(f"\n✅ {len(traces)} traces trouvées :\n")
-        for trace in traces:
-            trace_id = trace.get("traceID")
-            service = trace.get("rootServiceName")
-            print(f"🧵 TraceID: {trace_id} | Service: {service}")
-            fetch_trace_details(trace_id)
-            print("-" * 60)
-
-    except Exception as e:
-        print(f"❌ Erreur récupération des traces : {e}")
-
-def fetch_trace_details(trace_id):
-    url = f"{TEMPO_BASE_URL}/api/traces/{trace_id}"
-    try:
-        response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()
-        data = response.json()
-
-        batches = data.get("batches", [])
-        for batch in batches:
-            scope_spans = batch.get("scopeSpans", [])
-            for scope in scope_spans:
-                spans = scope.get("spans", [])
-                for span in spans:
-                    name = span.get("name", "N/A")
-                    attributes = span.get("attributes", [])
-                    
-                    method = uri = status = http_url = exception = outcome = None
-
-                    for attr in attributes:
-                        key = attr.get("key", "")
-                        val = attr.get("value", {}).get("stringValue", "")
-
-                        if key == "method":
-                            method = val
-                        elif key == "uri":
-                            uri = val
-                        elif key == "status":
-                            status = val
-                        elif key == "http.url":
-                            http_url = val
-                        elif key == "exception":
-                            exception = val
-                        elif key == "outcome":
-                            outcome = val
-
-                    print(f"   ➤ Span: {name}")
-                    print(f"      • Method     : {method}")
-                    print(f"      • URI        : {uri}")
-                    print(f"      • Status     : {status}")
-                    print(f"      • HTTP URL   : {http_url}")
-                    print(f"      • Outcome    : {outcome}")
-                    print(f"      • Exception  : {exception}")
-
-    except Exception as e:
-        print(f"❌ Erreur détails trace {trace_id} : {e}")
-
-if __name__ == "__main__":
-    print("📡 Surveillance en temps réel des traces Tempo...\n")
-    seen_traces = set()
-    while True:
-        try:
-            url = f"{TEMPO_BASE_URL}/api/search"
-
-            now_ns = int(time.time() * 1_000_000_000)
-            one_min_ago_ns = now_ns - 60 * 1_000_000_000
-
-            payload = {
-                "start": one_min_ago_ns,
-                "end": now_ns,
-                "limit": 20,
-                "lookback": "1m"
-            }
-
-            response = requests.post(url, json=payload, headers=HEADERS)
-            response.raise_for_status()
-            traces = response.json().get("traces", [])
-
-            for trace in traces:
-                trace_id = trace.get("traceID")
-                if trace_id not in seen_traces:
-                    seen_traces.add(trace_id)
-                    service = trace.get("rootServiceName")
-                    print(f"\n🧵 Nouvelle trace: {trace_id} | Service: {service}")
-                    fetch_trace_details(trace_id)
-                    print("-" * 60)
-
-            time.sleep(10)
-
-        except KeyboardInterrupt:
-            print("\n🛑 Arrêt manuel.")
-            break
-        except Exception as e:
-            print(f"❌ Erreur boucle principale : {e}")
-            time.sleep(5)
