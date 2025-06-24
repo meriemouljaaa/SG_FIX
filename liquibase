@@ -10,7 +10,6 @@ def is_incident(log_line):
     ])
 
 def parse_log_line(log_line):
-    # Exemple brut : 2025-06-21T23:14:25.140Z ERROR 1 --- [xxx] message
     pattern = r"^(?P<time>[\d\-T:\.Z]+)\s+(?P<level>[A-Z]+)\s+.*?\]\s+(?P<msg>.*)$"
     match = re.match(pattern, log_line)
     if match:
@@ -47,10 +46,13 @@ def get_logs():
         logs = []
 
         for stream in data.get("data", {}).get("result", []):
+            service_name = stream.get("stream", {}).get("service_name", "N/A")
+
             for entry in stream.get("values", []):
                 message = entry[1]
-                log = parse_log_line(message)
-                logs.append(log)
+                parsed = parse_log_line(message)
+                parsed["service_name"] = service_name
+                logs.append(parsed)
 
         return logs
 
@@ -61,7 +63,7 @@ def get_logs():
 def display_logs(logs):
     print("\n📋 Logs récupérés :\n")
     for log in logs:
-        print(f"[{log['time']}] [{log['level']}] {log['incident']} {log['message']}")
+        print(f"[{log['time']}] [{log['level']}] [{log['service_name']}] {log['incident']} {log['message']}")
 
 def run_loop():
     print("📡 Démarrage de la récupération des logs Loki...\n")
