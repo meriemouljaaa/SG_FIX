@@ -1,35 +1,53 @@
 import requests
 import time
-import re
+import json
 
 LOKI_URL = "http://localhost:3100/loki/api/v1/query_range"
 
-def is_incident(log_line):
-    return any(keyword in log_line.lower() for keyword in [
-        "exception", "error", "failed", "unknownhost", "refused", "timed out"
+def is_incident(message):
+    return any(keyword in message.lower() for keyword in [
+        "exception", "error", "failed", "refused", "timed out", "unknownhost"
     ])
 
-def parse_log_line(log_line):
-    pattern = r"^(?P<time>[\d\-T:\.Z]+)\s+(?P<level>[A-Z]+)\s+.*?\]\s+(?P<msg>.*)$"
-    match = re.match(pattern, log_line)
-    if match:
+def parse_otel_log(log_line):
+    try:
+        obj = json.loads(log_line)
+
+        # Lecture des attributs avec fallback
+        timestamp = obj.get("timestamp") or obj.get("time") or "N/A"
+        level = obj.get("severity") or obj.get("severityText") or obj.get("level") or "N/A"
+        resource = obj.get("resource", {}) or {}
+        service = (
+            resource.get("service.name") or
+            obj.get("service.name") or
+            obj.get("service_name") or
+            "unknown_service"
+        )
+        message = obj.get("body") or obj.get("message") or str(obj)
+
         return {
-            "time": match.group("time"),
-            "level": match.group("level"),
-            "message": match.group("msg")[:120],
+            "timestamp": timestamp,
+            "level": level,
+            "service_name": service,
+            "message": message[:150],
+            "incident": "🚨" if is_incident(message) else ""
+        }
+
+    except (json.JSONDecodeError, TypeError):
+        return {
+            "timestamp": "N/A",
+            "level": "N/A",
+            "service_name": "unknown",
+            "message": log_line[:150],
             "incident": "🚨" if is_incident(log_line) else ""
         }
-    return {
-        "time": "N/A",
-        "level": "N/A",
-        "message": log_line[:120],
-        "incident": "🚨" if is_incident(log_line) else ""
-    }
 
 def get_logs():
     now = int(time.time() * 1_000_000_000)
-    start = now - 60 * 1_000_000_000
-    query = '{service_name="observability-spring-grafana"}'
+    start = now - 60 * 1_000_000_000  # 60 secondes en nanosecondes
+
+    # Ce label peut être adapté selon votre config Loki
+    query = '{service_name=~".+"}'
 
     params = {
         "query": query,
@@ -43,30 +61,27 @@ def get_logs():
         response = requests.get(LOKI_URL, params=params)
         response.raise_for_status()
         data = response.json()
+
         logs = []
-
         for stream in data.get("data", {}).get("result", []):
-            service_name = stream.get("stream", {}).get("service_name", "N/A")
-
             for entry in stream.get("values", []):
-                message = entry[1]
-                parsed = parse_log_line(message)
-                parsed["service_name"] = service_name
+                log_line = entry[1]
+                parsed = parse_otel_log(log_line)
                 logs.append(parsed)
 
         return logs
 
     except requests.exceptions.RequestException as e:
-        print(f"❌ Erreur de requête Loki : {e}")
+        print(f"❌ Erreur lors de l'appel à Loki : {e}")
         return []
 
 def display_logs(logs):
     print("\n📋 Logs récupérés :\n")
     for log in logs:
-        print(f"[{log['time']}] [{log['level']}] [{log['service_name']}] {log['incident']} {log['message']}")
+        print(f"[{log['timestamp']}] [{log['level']}] [{log['service_name']}] {log['incident']} {log['message']}")
 
 def run_loop():
-    print("📡 Démarrage de la récupération des logs Loki...\n")
+    print("📡 Récupération des logs OpenTelemetry depuis Loki...\n")
     while True:
         logs = get_logs()
         if logs:
