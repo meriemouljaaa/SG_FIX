@@ -42,6 +42,16 @@ export default function UploadTrainingCard() {
     setShowMetrics(true); // Switch to metrics view
   };
 
+  // Confusion Matrix Values
+  const TP = 50; // True Positives
+  const FP = 5;  // False Positives
+  const FN = 3;  // False Negatives
+  const TN = 42; // True Negatives
+
+  // Calculate Precision and Accuracy
+  const precision = TP / (TP + FP); // TP / (TP + FP)
+  const accuracy = (TP + TN) / (TP + FP + FN + TN); // (TP + TN) / Total
+
   return (
     <div className="flex bg-gray-50 min-h-screen text-[17px] relative">
       <Sidebar />
@@ -188,6 +198,26 @@ export default function UploadTrainingCard() {
                     </tr>
                   </tbody>
                 </table>
+
+                {/* Precision and Accuracy Section */}
+                <div className="mt-6 p-4 bg-gray-50 rounded-xl shadow-md border border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Métriques</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Precision: {(precision * 100).toFixed(2)}%</p>
+                      <p className="text-xs text-gray-600">
+                        Precision mesure la proportion de prédictions positives correctes parmi toutes les prédictions positives (TP / (TP + FP)). Une précision élevée indique peu de faux positifs.
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Accuracy: {(accuracy * 100).toFixed(2)}%</p>
+                      <p className="text-xs text-gray-600">
+                        Accuracy mesure la proportion de prédictions correctes (positives et négatives) sur le total des prédictions ((TP + TN) / (TP + FP + FN + TN)). Une accuracy élevée reflète une bonne performance globale.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="mt-6 text-right">
                   <button
                     className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
