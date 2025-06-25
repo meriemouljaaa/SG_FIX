@@ -43,7 +43,6 @@ export default function UploadTrainingCard() {
       <Sidebar />
       <div className="flex-1 flex flex-col">
           <HeaderBar />
-        {/* Contenu principal en dessous du HeaderBar */}
         <div className="p-6">
           <div className="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-2xl p-6 mt-6">
             {/* Drop zone */}
@@ -94,7 +93,6 @@ export default function UploadTrainingCard() {
             {file && (
               <div className="mt-6 bg-gray-50 p-4 rounded-xl shadow-md border border-gray-200 flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <img src="/icons/excel.png" alt="excel" className="w-10 h-10" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">{file.name}</p>
                     <p className="text-xs text-gray-500">
@@ -117,8 +115,7 @@ export default function UploadTrainingCard() {
             {/* Template download */}
             <div className="mt-6 bg-gray-50 p-4 rounded-xl shadow-md border border-gray-200 flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <img src="/icons/excel.png" alt="template" className="w-10 h-10" />
-                <div>
+              <div>
                   <p className="text-sm font-medium text-gray-900">Modèle de classification</p>
                   <p className="text-xs text-gray-500">XLSX – 4.49 KB</p>
                 </div>
