@@ -11,7 +11,7 @@ export default function UploadTrainingCard() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<number>(0);
   const [showHelp, setShowHelp] = useState(false);
-  const [showMetrics, setShowMetrics] = useState(false); // State to toggle metrics page
+  const [showMetrics, setShowMetrics] = useState(false); // Toggle metrics view
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
@@ -39,7 +39,7 @@ export default function UploadTrainingCard() {
   };
 
   const handleNext = () => {
-    setShowMetrics(true); // Toggle to show metrics instead of navigating
+    setShowMetrics(true); // Switch to metrics view
   };
 
   return (
@@ -165,31 +165,26 @@ export default function UploadTrainingCard() {
               </>
             ) : (
               <>
-                {/* Metrics Section */}
+                {/* Confusion Matrix Section */}
                 <h2 className="text-xl font-semibold text-gray-800 mb-4">Matrice de Confusion</h2>
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-center border-collapse">
                   <thead>
                     <tr className="bg-gray-100">
-                      <th className="p-2 border">Type</th>
-                      <th className="p-2 border">Value</th>
+                      <th className="p-2 border"></th> {/* Empty for alignment */}
+                      <th className="p-2 border">Predicted Positive</th>
+                      <th className="p-2 border">Predicted Negative</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="p-2 border">True Positives (TP)</td>
-                      <td className="p-2 border">50</td>
+                      <td className="p-2 border font-semibold">Actual Positive</td>
+                      <td className="p-2 border">50 (TP)</td> {/* True Positives */}
+                      <td className="p-2 border">3 (FN)</td>  {/* False Negatives */}
                     </tr>
                     <tr>
-                      <td className="p-2 border">False Positives (FP)</td>
-                      <td className="p-2 border">5</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border">False Negatives (FN)</td>
-                      <td className="p-2 border">3</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border">True Negatives (TN)</td>
-                      <td className="p-2 border">42</td>
+                      <td className="p-2 border font-semibold">Actual Negative</td>
+                      <td className="p-2 border">5 (FP)</td>  {/* False Positives */}
+                      <td className="p-2 border">42 (TN)</td> {/* True Negatives */}
                     </tr>
                   </tbody>
                 </table>
