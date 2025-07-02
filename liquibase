@@ -1,243 +1,40 @@
-"use client";
+package com.socgen.unibank.controllers;
 
-import { useState } from "react";
-import { FaCloudUploadAlt, FaDownload, FaTimes, FaChevronDown, FaChevronUp, FaCheck } from "react-icons/fa";
-import dynamic from "next/dynamic";
-import Sidebar from "../SideBarComponent/SideBar";
-import HeaderBar from "../components/HeaderBar";
+import com.socgen.unibank.services.KpiService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
 
-export default function UploadTrainingCard() {
-  const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState<number>(0);
-  const [showHelp, setShowHelp] = useState(false);
-  const [showMetrics, setShowMetrics] = useState(false); // Toggle metrics view
+import java.util.Map;
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0] || null;
-    setFile(selectedFile);
-    setProgress(0);
+@RestController
+@RequestMapping("/api/kpi")
+@RequiredArgsConstructor
+public class KpiController {
 
-    if (selectedFile) {
-      setUploading(true);
-      let prog = 0;
-      const interval = setInterval(() => {
-        prog += 10;
-        setProgress(prog);
-        if (prog >= 100) {
-          clearInterval(interval);
-          setUploading(false);
-        }
-      }, 200);
+    private final KpiService kpiService;
+
+    @GetMapping("/weekly")
+    public Map<String, Object> getIncidentsByWeek() {
+        return kpiService.getIncidentsByWeek();
     }
-  };
 
-  const handleRemoveFile = () => {
-    setFile(null);
-    setProgress(0);
-    setUploading(false);
-  };
+    @GetMapping("/priorite")
+    public Map<String, Object> getIncidentsByPriorite() {
+        return kpiService.getIncidentsByPriorite();
+    }
 
-  const handleNext = () => {
-    setShowMetrics(true); // Switch to metrics view
-  };
+    @GetMapping("/gravite")
+    public Map<String, Object> getIncidentsByGravite() {
+        return kpiService.getIncidentsByGravite();
+    }
 
-  // Confusion Matrix Values
-  const TP = 50; // True Positives
-  const FP = 5;  // False Positives
-  const FN = 3;  // False Negatives
-  const TN = 42; // True Negatives
+    @GetMapping("/services")
+    public Map<String, Object> getIncidentsByService() {
+        return kpiService.getIncidentsByService();
+    }
 
-  // Calculate Precision, Accuracy, and F1 Score
-  const precision = TP / (TP + FP); // TP / (TP + FP)
-  const recall = TP / (TP + FN);    // TP / (TP + FN)
-  const accuracy = (TP + TN) / (TP + FP + FN + TN); // (TP + TN) / Total
-  const f1Score = 2 * (precision * recall) / (precision + recall); // 2 * (Precision * Recall) / (Precision + Recall)
-
-  return (
-    <div className="flex bg-gray-50 min-h-screen text-[17px] relative">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <HeaderBar />
-        <div className="p-6">
-          <div className="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-2xl p-6 mt-6">
-            {!showMetrics ? (
-              <>
-                {/* Drop zone */}
-                <div
-                  className="border-2 border-dashed border-gray-300 p-8 rounded-xl flex flex-col items-center text-center transition-all duration-300 hover:bg-gray-50"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const droppedFile = e.dataTransfer.files[0];
-                    if (droppedFile && (droppedFile.type === "text/csv" || droppedFile.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
-                      setFile(droppedFile);
-                      setProgress(0);
-                      setUploading(true);
-                      let prog = 0;
-                      const interval = setInterval(() => {
-                        prog += 10;
-                        setProgress(prog);
-                        if (prog >= 100) {
-                          clearInterval(interval);
-                          setUploading(false);
-                        }
-                      }, 200);
-                    }
-                  }}
-                >
-                  <FaCloudUploadAlt className="text-blue-500" size={50} />
-                  <h2 className="text-xl font-semibold mt-4 text-gray-800">Importer une classification personnalisée</h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Glissez-déposez ou <span className="text-blue-500 cursor-pointer">parcourez</span> un fichier. <br />
-                    Taille max : 50 Mo – Formats : <b>.CSV, .XLSX</b>
-                  </p>
-                  <input
-                    type="file"
-                    accept=".csv, .xlsx"
-                    onChange={handleFileChange}
-                    className="mt-4 hidden"
-                    id="fileInput"
-                  />
-                  <label
-                    htmlFor="fileInput"
-                    className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition"
-                  >
-                    Choisir un fichier
-                  </label>
-                </div>
-
-                {/* File progress card */}
-                {file && (
-                  <div className="mt-6 bg-gray-50 p-4 rounded-xl shadow-md border border-gray-200 flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{file.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {(file.size / 1024 / 1024).toFixed(1)} MB – {uploading ? `${100 - progress / 10}s left` : "Téléchargé"}
-                        </p>
-                        <div className="w-full bg-gray-200 h-2 rounded-full mt-1 overflow-hidden">
-                          <div
-                            className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                            style={{ width: `${progress}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                    <button onClick={handleRemoveFile} className="text-red-500 hover:text-red-700">
-                      <FaTimes size={18} />
-                    </button>
-                  </div>
-                )}
-
-                {/* Template download */}
-                <div className="mt-6 bg-gray-50 p-4 rounded-xl shadow-md border border-gray-200 flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">Modèle de classification</p>
-                      <p className="text-xs text-gray-500">XLSX – 4.49 KB</p>
-                    </div>
-                  </div>
-                  <a
-                    href="/templates/template_classification.xlsx"
-                    download
-                    className="flex items-center px-3 py-2 bg-white border border-gray-300 text-sm rounded-lg hover:bg-gray-100 transition"
-                  >
-                    <FaDownload className="mr-2" /> Télécharger
-                  </a>
-                </div>
-
-                {/* How to guide */}
-                <div className="mt-6 bg-gray-50 p-4 rounded-xl shadow-md border border-gray-200 cursor-pointer" onClick={() => setShowHelp(!showHelp)}>
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm font-medium text-gray-700">Comment créer une classification personnalisée</p>
-                    {showHelp ? <FaChevronUp /> : <FaChevronDown />}
-                  </div>
-                  {showHelp && (
-                    <div className="mt-3 text-sm text-gray-600">
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li>Téléchargez le modèle et ouvrez-le dans Excel.</li>
-                        <li>Remplissez les colonnes de classification requises.</li>
-                        <li>Enregistrez en format <b>.csv</b> ou <b>.xlsx</b>.</li>
-                        <li>Importez via la zone ci-dessus.</li>
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                {/* Next Button */}
-                <div className="mt-6 text-right">
-                  <button
-                    onClick={handleNext}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                  >
-                    Next
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Confusion Matrix Section */}
-                <h2 className="text-xl font-semibold text-gray-800 mb-4">Matrice de Confusion</h2>
-                <table className="w-full text-center border-collapse">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="p-2 border"></th> {/* Empty for alignment */}
-                      <th className="p-2 border">Predicted Positive</th>
-                      <th className="p-2 border">Predicted Negative</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="p-2 border font-semibold">Actual Positive</td>
-                      <td className="p-2 border">50 (TP)</td> {/* True Positives */}
-                      <td className="p-2 border">3 (FN)</td>  {/* False Negatives */}
-                    </tr>
-                    <tr>
-                      <td className="p-2 border font-semibold">Actual Negative</td>
-                      <td className="p-2 border">5 (FP)</td>  {/* False Positives */}
-                      <td className="p-2 border">42 (TN)</td> {/* True Negatives */}
-                    </tr>
-                  </tbody>
-                </table>
-
-                {/* Precision, Accuracy, and F1 Score Section */}
-                <div className="mt-6 p-4 bg-gray-50 rounded-xl shadow-md border border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Métriques</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">Precision: {(precision * 100).toFixed(2)}%</p>
-                      <p className="text-xs text-gray-600">
-                        Precision mesure la proportion de prédictions positives correctes parmi toutes les prédictions positives (TP / (TP + FP)). Une précision élevée indique peu de faux positifs.
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">Accuracy: {(accuracy * 100).toFixed(2)}%</p>
-                      <p className="text-xs text-gray-600">
-                        Accuracy mesure la proportion de prédictions correctes (positives et négatives) sur le total des prédictions ((TP + TN) / (TP + FP + FN + TN)). Une accuracy élevée reflète une bonne performance globale.
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">F1 Score: {(f1Score * 100).toFixed(2)}%</p>
-                      <p className="text-xs text-gray-600">
-                        F1 Score est la moyenne harmonique de la précision et du rappel (2 * (Precision * Recall) / (Precision + Recall)). Il équilibre la précision et le rappel, utile pour les classes déséquilibrées.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 text-right">
-                  <button
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                  >
-                    <FaCheck className="mr-2 inline" /> Valider
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    @GetMapping("/resolution-time")
+    public Map<String, Object> getAverageResolutionTime() {
+        return kpiService.getAvgResolutionTime();
+    }
 }
