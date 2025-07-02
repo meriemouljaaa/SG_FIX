@@ -1,3 +1,92 @@
+package com.socgen.unibank.repositories;
+
+import com.socgen.unibank.services.gateways.outbound.persistence.jpa.IncidentEntity;
+import com.socgen.unibank.enums.PrioriteIncident;
+import com.socgen.unibank.enums.GraviteIncident;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.time.LocalDate;
+import java.util.List;
+
+public interface IncidentRepository extends JpaRepository<IncidentEntity, Long> {
+
+    @Query("SELECT COUNT(i) FROM IncidentEntity i WHERE i.dateDeclaration BETWEEN :start AND :end")
+    Long countIncidentsByPeriod(LocalDate start, LocalDate end);
+
+    @Query("SELECT i.priorite, COUNT(i) FROM IncidentEntity i GROUP BY i.priorite")
+    List<Object[]> countIncidentsByPriorite();
+
+    @Query("SELECT i.gravite, COUNT(i) FROM IncidentEntity i GROUP BY i.gravite")
+    List<Object[]> countIncidentsByGravite();
+
+    @Query("SELECT i.service.nom, COUNT(i) FROM IncidentEntity i GROUP BY i.service.nom")
+    List<Object[]> countIncidentsByService();
+
+    @Query("SELECT FUNCTION('date_part', 'week', i.dateDeclaration), COUNT(i) FROM IncidentEntity i GROUP BY FUNCTION('date_part', 'week', i.dateDeclaration) ORDER BY 1")
+    List<Object[]> countIncidentsByWeek();
+
+    @Query("SELECT AVG(TIMESTAMPDIFF(HOUR, i.dateDeclaration, i.dateResolution)) FROM IncidentEntity i WHERE i.dateResolution IS NOT NULL")
+    Double averageResolutionTimeInHours();
+
+    @Query("SELECT i.environment, COUNT(i) FROM IncidentEntity i GROUP BY i.environment")
+    List<Object[]> countByEnvironment();
+}
+
+
+package com.socgen.unibank.services;
+
+import com.socgen.unibank.repositories.IncidentRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+@RequiredArgsConstructor
+public class KpiService {
+
+    private final IncidentRepository incidentRepository;
+
+    public Map<String, Object> getIncidentsByWeek() {
+        List<Object[]> results = incidentRepository.countIncidentsByWeek();
+        return convertToMap(results);
+    }
+
+    public Map<String, Object> getIncidentsByPriorite() {
+        List<Object[]> results = incidentRepository.countIncidentsByPriorite();
+        return convertToMap(results);
+    }
+
+    public Map<String, Object> getIncidentsByGravite() {
+        List<Object[]> results = incidentRepository.countIncidentsByGravite();
+        return convertToMap(results);
+    }
+
+    public Map<String, Object> getIncidentsByService() {
+        List<Object[]> results = incidentRepository.countIncidentsByService();
+        return convertToMap(results);
+    }
+
+    public Map<String, Object> getAvgResolutionTime() {
+        Double avg = incidentRepository.averageResolutionTimeInHours();
+        Map<String, Object> map = new HashMap<>();
+        map.put("averageResolutionTime", avg != null ? avg : 0);
+        return map;
+    }
+
+    private Map<String, Object> convertToMap(List<Object[]> raw) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("labels", raw.stream().map(e -> e[0].toString()).toList());
+        map.put("data", raw.stream().map(e -> ((Number) e[1]).intValue()).toList());
+        return map;
+    }
+}
+
+
 package com.socgen.unibank.controllers;
 
 import com.socgen.unibank.services.KpiService;
