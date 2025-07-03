@@ -1,12 +1,2 @@
-@Override
-    public GetIncidentsByGraviteResponse handle(GetIncidentsByGraviteRequest request) {
-        List<Object[]> rawStats = repository.countIncidentsByGraviteBetween(
-            request.getDateDebut(),
-            request.getDateFin()
-        );
+@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
 
-        List<String> labels = rawStats.stream().map(r -> r[0].toString()).collect(Collectors.toList());
-        List<Long> data = rawStats.stream().map(r -> ((Number) r[1]).longValue()).collect(Collectors.toList());
-
-        return new GetIncidentsByGraviteResponse(labels, data);
-    }
