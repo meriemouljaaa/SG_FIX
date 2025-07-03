@@ -1,2 +1,14 @@
-@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+spring.jackson.serialization.WRITE_DATES_AS_TIMESTAMPS=false
+spring.jackson.date-format=yyyy-MM-dd
+public class GetIncidentsByGraviteRequest {
+    private String dateDebut;
+    private String dateFin;
+    // getters setters
+}
+DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+LocalDate start = LocalDate.parse(request.getDateDebut(), formatter);
+LocalDate end = LocalDate.parse(request.getDateFin(), formatter);
 
+// Conversion LocalDate -> Date
+Date startDate = Date.from(start.atStartOfDay(ZoneId.systemDefault()).toInstant());
+Date endDate = Date.from(end.atStartOfDay(ZoneId.systemDefault()).toInstant());
