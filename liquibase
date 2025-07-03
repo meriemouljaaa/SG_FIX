@@ -1,26 +1,77 @@
-def parse_otel_log(log_line, default_service_name="unknown_service"):
+import datetime
+import requests
+import time
+import json
+import re
+
+from generate_description import generate_description
+
+LOKI_URL = "http://localhost:3100/loki/api/v1/query_range"
+
+# ✅ Détection d'incident
+def is_incident(message):
+    return any(keyword in message.lower() for keyword in [
+        "exception", "error", "failed", "refused", "timed out", "unknownhost"
+    ])
+
+# 🔍 Parsing de log avec enrichissement
+
+def parse_otel_log(log_line, default_service_name="unknown_service", raw_ts=None):
     try:
-        outer = json.loads(log_line)
+        obj = json.loads(log_line)
 
-        # 👉 ici on récupère le vrai JSON depuis le champ "body"
-        body_raw = outer.get("body") or outer.get("message") or "{}"
-        inner = json.loads(body_raw) if isinstance(body_raw, str) else body_raw
-
-        timestamp = outer.get("timestamp", "N/A")  # souvent dans l'enveloppe
-        level = inner.get("severity") or inner.get("severityText") or inner.get("level") or "N/A"
-
-        resource = inner.get("resource", {})
-        service = (
-            resource.get("service.name") or
-            inner.get("service.name") or
-            inner.get("service_name") or
-            default_service_name
+        # 🔁 timestamp récupéré du paramètre raw_ts (en nanosecondes)
+        timestamp = (
+            datetime.utcfromtimestamp(int(raw_ts[:10]))  # convert to datetime
+            .strftime('%Y-%m-%d %H:%M:%S') if raw_ts else "N/A"
         )
 
-        message = inner.get("message") or str(inner)
+        level = obj.get("severity") or obj.get("severityText") or obj.get("level") or "N/A"
+        resource = obj.get("resource", {}) or {}
 
-    except (json.JSONDecodeError, TypeError) as e:
-        # fallback en texte brut
+        service = (
+            resource.get("service.name") or
+            obj.get("service.name") or
+            obj.get("service_name") or
+            default_service_name
+        )
+        message = obj.get("body") or obj.get("message") or str(obj)
+
+    except (json.JSONDecodeError, TypeError):
+        timestamp = datetime.utcfromtimestamp(int(raw_ts[:10])).strftime('%Y-%m-%d %H:%M:%S') if raw_ts else "N/A"
+        level = "N/A"
+        message = log_line[:150]
+        service = default_service_name
+
+    description = generate_description({
+        "message": message,
+        "service_name": service,
+        "level": level
+    })
+
+    return {
+        "timestamp": timestamp,
+        "level": level,
+        "service_name": service,
+        "message": message,
+        "incident": "🚨" if is_incident(message) else "",
+        "description": description
+    }
+    try:
+        obj = json.loads(log_line)
+        timestamp = obj.get("timestamp") or obj.get("Time") or "N/A"
+        level = obj.get("severity") or obj.get("severityText") or obj.get("level") or "N/A"
+        resource = obj.get("resource", {}) or {}
+
+        service = (
+            resource.get("service.name") or
+            obj.get("service.name") or
+            obj.get("service_name") or
+            default_service_name
+        )
+        message = obj.get("body") or obj.get("message") or str(obj)
+
+    except (json.JSONDecodeError, TypeError):
         match = re.match(r"(?P<time>\d{4}-\d{2}-\d{2}T[\d:.]+Z)?\s*(?P<level>[A-Z]+)\s.*?-{3,}\s.*?\]\s+(?P<msg>.*)", log_line)
         if match:
             timestamp = match.group("time")
@@ -47,3 +98,96 @@ def parse_otel_log(log_line, default_service_name="unknown_service"):
         "incident": "🚨" if is_incident(message) else "",
         "description": description
     }
+
+# 📡 Récupération des logs depuis Loki
+def get_logs():
+    now = int(time.time() * 1_000_000_000)
+    start = now - 60 * 1_000_000_000  # 60 secondes
+
+    query = '{service_name=~".+"}'
+
+    params = {
+        "query": query,
+        "start": start,
+        "end": now,
+        "limit": 100,
+        "direction": "forward"
+    }
+    try:
+        response = requests.get(LOKI_URL, params=params)
+        response.raise_for_status()
+        data = response.json()
+
+        logs = []
+        for stream in data.get("data", {}).get("result", []):
+            service_label = stream.get("stream", {}).get("service_name", "unknown_service")
+            for entry in stream.get("values", []):
+                log_line = entry[1]
+                parsed = parse_otel_log(log_line, service_label)
+                logs.append(parsed)
+
+        return logs
+
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Erreur lors de l'appel à Loki : {e}")
+        return []
+
+# 🧾 Format JSON avec titre, description, application, time
+def format_incidents_as_json(logs):
+    incidents = [log for log in logs if log["incident"] == "🚨"]
+    formatted = []
+
+    for log in incidents:
+        title_match = re.search(r"\b(\w+Exception)\b", log["message"])
+        title = title_match.group(1) if title_match else "Incident détecté"
+
+        formatted.append({
+            "title": title,
+            "description": log["description"],
+            "application": log["service_name"],
+            "time": log["timestamp"]
+        })
+
+    return formatted
+
+# 🖥️ Affichage console
+def display_logs(logs):
+    print("\n📋 Logs récupérés :\n")
+    for log in logs:
+        print(f"⏱️  Time       : {log['timestamp']}")
+        print(f"🪵  Level      : {log['level']}")
+        print(f"🧩  Service    : {log['service_name']} {log['incident']}")
+        print(f"📝  Message    : {log['message']}")
+        print(f"📌  Description: {log['description']}\n")
+
+# 💾 Sauvegarde des incidents uniquement
+def save_incidents_to_file(logs, filename="incidents.txt"):
+    incidents = [log for log in logs if log["incident"] == "🚨"]
+    if not incidents:
+        return
+
+    with open(filename, "a", encoding="utf-8") as f:
+        for incident in incidents:
+            f.write(json.dumps(incident, ensure_ascii=False) + "\n")
+
+# 🔁 Boucle principale
+def run_loop():
+    print("📡 Récupération des logs OpenTelemetry depuis Loki...\n")
+    while True:
+        logs = get_logs()
+        if logs:
+            print(f"\n✅ {len(logs)} logs récupérés")
+            display_logs(logs)
+
+            json_response = format_incidents_as_json(logs)
+            print("\n📤 Format JSON des incidents détectés :\n")
+            print(json.dumps(json_response, indent=4, ensure_ascii=False))
+
+            save_incidents_to_file(logs)
+        else:
+            print("⚠️ Aucun log trouvé.")
+        time.sleep(10)
+
+# ▶️ Lancement
+if __name__ == "__main__":
+    run_loop()
