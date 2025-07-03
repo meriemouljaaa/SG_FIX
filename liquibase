@@ -1,8 +1,49 @@
-curl -X POST "http://localhost:3100/loki/api/v1/query_range" \
-  -H "Content-Type: application/json" \
-  -u loki-int:Lhtyiu@234 \
-  -d '{
-    "query": "{job=\"myjob\"}",
-    "start": 1719792000000000000,
-    "end": 1719878400000000000
-  }'
+def parse_otel_log(log_line, default_service_name="unknown_service"):
+    try:
+        outer = json.loads(log_line)
+
+        # 👉 ici on récupère le vrai JSON depuis le champ "body"
+        body_raw = outer.get("body") or outer.get("message") or "{}"
+        inner = json.loads(body_raw) if isinstance(body_raw, str) else body_raw
+
+        timestamp = outer.get("timestamp", "N/A")  # souvent dans l'enveloppe
+        level = inner.get("severity") or inner.get("severityText") or inner.get("level") or "N/A"
+
+        resource = inner.get("resource", {})
+        service = (
+            resource.get("service.name") or
+            inner.get("service.name") or
+            inner.get("service_name") or
+            default_service_name
+        )
+
+        message = inner.get("message") or str(inner)
+
+    except (json.JSONDecodeError, TypeError) as e:
+        # fallback en texte brut
+        match = re.match(r"(?P<time>\d{4}-\d{2}-\d{2}T[\d:.]+Z)?\s*(?P<level>[A-Z]+)\s.*?-{3,}\s.*?\]\s+(?P<msg>.*)", log_line)
+        if match:
+            timestamp = match.group("time")
+            level = match.group("level")
+            message = match.group("msg")[:150]
+        else:
+            timestamp = "N/A"
+            level = "N/A"
+            message = log_line[:150]
+
+        service = default_service_name
+
+    description = generate_description({
+        "message": message,
+        "service_name": service,
+        "level": level
+    })
+
+    return {
+        "timestamp": timestamp,
+        "level": level,
+        "service_name": service,
+        "message": message,
+        "incident": "🚨" if is_incident(message) else "",
+        "description": description
+    }
