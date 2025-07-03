@@ -1,8 +1,1 @@
-curl -X POST "http://localhost:3100/loki/api/v1/query_range" \
-  -H "Content-Type: application/json" \
-  -u loki-int:Lhtyiu@234 \
-  -d '{
-    "query": "{job=\"myjob\"}",
-    "start": 1719792000000000000,
-    "end": 1719878400000000000
-  }'
+curl -X POST "http://localhost:3100/loki/api/v1/query_range" -H "Content-Type: application/json" -u loki-int:Lhtyiu@234 -d '{"query":"{job=\"myjob\"}","start":1719792000000000000,"end":1719878400000000000}'
