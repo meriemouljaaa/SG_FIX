@@ -1,107 +1,12 @@
-package com.socgen.unibank.services.gateways.inbound.dto;
+@Override
+    public GetIncidentsByGraviteResponse handle(GetIncidentsByGraviteRequest request) {
+        List<Object[]> rawStats = repository.countIncidentsByGraviteBetween(
+            request.getDateDebut(),
+            request.getDateFin()
+        );
 
-import lombok.Data;
+        List<String> labels = rawStats.stream().map(r -> r[0].toString()).collect(Collectors.toList());
+        List<Long> data = rawStats.stream().map(r -> ((Number) r[1]).longValue()).collect(Collectors.toList());
 
-@Data
-public class GetIncidentByGraviteRequest {
-    private String dateDebut; // format: "2024-01-01"
-    private String dateFin;   // format: "2024-01-31"
-}
-package com.socgen.unibank.services.gateways.inbound.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-
-import java.util.List;
-
-@Data
-@AllArgsConstructor
-public class GetIncidentByGraviteResponse {
-    private List<String> labels;
-    private List<Long> data;
-}
-package com.socgen.unibank.domain.model;
-
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-
-@Getter
-@AllArgsConstructor
-public class IncidentGraviteStat {
-    private String gravite;
-    private Long count;
-}
-package com.socgen.unibank.repositories;
-
-import com.socgen.unibank.services.gateways.outbound.persistence.jpa.IncidentEntity;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-
-import java.time.LocalDate;
-import java.util.List;
-
-public interface IncidentRepository extends JpaRepository<IncidentEntity, Long> {
-
-    @Query("SELECT i.gravite, COUNT(i) FROM IncidentEntity i " +
-           "WHERE i.dateDeclaration BETWEEN :start AND :end " +
-           "GROUP BY i.gravite")
-    List<Object[]> countIncidentsByGraviteBetweenDates(@Param("start") LocalDate start,
-                                                       @Param("end") LocalDate end);
-}
-package com.socgen.unibank.application.usecase;
-
-import com.socgen.unibank.domain.model.IncidentGraviteStat;
-import com.socgen.unibank.repositories.IncidentRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
-import java.time.LocalDate;
-import java.util.List;
-import java.util.stream.Collectors;
-
-@Service
-@RequiredArgsConstructor
-public class GetIncidentByGraviteUseCase {
-
-    private final IncidentRepository incidentRepository;
-
-    public List<IncidentGraviteStat> execute(LocalDate dateDebut, LocalDate dateFin) {
-        List<Object[]> results = incidentRepository.countIncidentsByGraviteBetweenDates(dateDebut, dateFin);
-        return results.stream()
-                .map(obj -> new IncidentGraviteStat(obj[0].toString(), (Long) obj[1]))
-                .collect(Collectors.toList());
+        return new GetIncidentsByGraviteResponse(labels, data);
     }
-}
-package com.socgen.unibank.infrastructure.web.controller;
-
-import com.socgen.unibank.application.usecase.GetIncidentByGraviteUseCase;
-import com.socgen.unibank.services.gateways.inbound.dto.GetIncidentByGraviteRequest;
-import com.socgen.unibank.services.gateways.inbound.dto.GetIncidentByGraviteResponse;
-import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.web.bind.annotation.*;
-
-import java.time.LocalDate;
-import java.util.List;
-
-@RestController
-@RequestMapping("/api/kpi")
-@RequiredArgsConstructor
-public class IncidentKpiController {
-
-    private final GetIncidentByGraviteUseCase getIncidentByGraviteUseCase;
-
-    @PostMapping("/gravite")
-    public GetIncidentByGraviteResponse getByGravite(@RequestBody GetIncidentByGraviteRequest request) {
-        LocalDate dateDebut = LocalDate.parse(request.getDateDebut());
-        LocalDate dateFin = LocalDate.parse(request.getDateFin());
-
-        var stats = getIncidentByGraviteUseCase.execute(dateDebut, dateFin);
-
-        List<String> labels = stats.stream().map(stat -> stat.getGravite()).toList();
-        List<Long> data = stats.stream().map(stat -> stat.getCount()).toList();
-
-        return new GetIncidentByGraviteResponse(labels, data);
-    }
-}
