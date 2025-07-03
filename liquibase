@@ -1,35 +1,8 @@
-import re
-
-def generate_description(log):
-    """
-    Génére une description claire à partir du message du log.
-    Aucun appel externe — adapté aux environnements sensibles comme SG.
-    """
-    message = log.get("message", "")
-    service = log.get("service_name", "service inconnu")
-    level = log.get("level", "N/A")
-    msg_lower = message.lower()
-
-    # 🔍 Cas courants
-    if "nullpointerexception" in msg_lower:
-        return f"Erreur critique : une variable non initialisée a été utilisée dans le service '{service}'."
-    elif "connection refused" in msg_lower:
-        return f"La connexion a échoué — le service '{service}' n'a pas pu atteindre le serveur cible."
-    elif "timeout" in msg_lower or "timed out" in msg_lower:
-        return f"Un délai d’attente a été dépassé, le service '{service}' n’a pas pu répondre à temps."
-    elif "sql" in msg_lower and "exception" in msg_lower:
-        return f"Une erreur SQL a été rencontrée dans le service '{service}'."
-    elif "authentication failed" in msg_lower or "access denied" in msg_lower:
-        return f"Échec d’authentification dans '{service}' — utilisateur ou mot de passe invalide."
-    elif "not found" in msg_lower or "404" in msg_lower:
-        return f"Ressource non trouvée — le service '{service}' a tenté d’accéder à une URL inexistante."
-
-    # 🧠 Exception générique
-    match = re.search(r"\b(\w+Exception)\b", message)
-    if match:
-        exception_type = match.group(1)
-        return f"Une exception de type {exception_type} a été détectée dans le service '{service}'."
-
-    # 🧾 Par défaut
-    return f"Une erreur de niveau {level} a été détectée dans le service '{service}'. Message partiel : {message[:100]}"
-
+curl -X POST "http://localhost:3100/loki/api/v1/query_range" \
+  -H "Content-Type: application/json" \
+  -u loki-int:Lhtyiu@234 \
+  -d '{
+    "query": "{job=\"myjob\"}",
+    "start": 1719792000000000000,
+    "end": 1719878400000000000
+  }'
