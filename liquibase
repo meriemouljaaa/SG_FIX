@@ -18,16 +18,19 @@ def parse_log_fallback_regex(log_line):
     level_match = re.search(r"\b(DEBUG|INFO|WARN|ERROR|TRACE|FATAL)\b", log_line)
     trace_match = re.search(r"traceId[=:] ?([a-fA-F0-9\-]+)", log_line)
     service_match = re.search(r"\[([^\]]+)\]", log_line)
-    body_match = re.search(r'body="?([^"]+)"?', log_line)
 
     service = service_match.group(1) if service_match else "unknown_service"
     level = level_match.group(1) if level_match else "N/A"
+
+    entity_match = re.search(r'Entity\s+([A-Z]{2})', log_line)
+    entity = entity_match.group(1) if entity_match else "N/A"
 
     return {
         "timestamp": "N/A",
         "level": level,
         "service_name": service,
         "trace_id": trace_match.group(1) if trace_match else "N/A",
+        "entity": entity,
         "message": log_line,
         "incident": "🚨" if is_incident(log_line) else "",
         "description": generate_description({
@@ -63,6 +66,9 @@ def parse_otel_log(log_line, default_service_name="unknown_service", raw_ts=None
             resource.get("trace_id") or "N/A"
         )
 
+        entity_match = re.search(r'Entity\s+([A-Z]{2})', message)
+        entity = entity_match.group(1) if entity_match else "N/A"
+
         description = generate_description({
             "message": message,
             "service_name": service,
@@ -74,6 +80,7 @@ def parse_otel_log(log_line, default_service_name="unknown_service", raw_ts=None
             "level": level,
             "service_name": service,
             "trace_id": trace_id,
+            "entity": entity,
             "message": message,
             "incident": "🚨" if is_incident(message) else "",
             "description": description
@@ -87,7 +94,7 @@ def get_logs():
     now = int(time.time() * 1_000_000_000)
     start = now - 60 * 1_000_000_000
 
-    query = '{service_name=~".+"}'  # Modifier selon vos labels Loki
+    query = '{service_name=~".+"}'
 
     params = {
         "query": query,
@@ -117,7 +124,6 @@ def get_logs():
                 with open("raw_logs.txt", "a", encoding="utf-8") as f:
                     f.write(log_line + "\n")
 
-                # Parsing normal
                 parsed = parse_otel_log(log_line, service_label, raw_ts)
                 logs.append(parsed)
 
@@ -164,6 +170,7 @@ def display_logs(logs):
         print(f"⏱️  Time       : {log['timestamp']}")
         print(f"🪵  Level      : {log['level']}")
         print(f"🧩  Service    : {log['service_name']} {log['incident']}")
+        print(f"🏷️  Entity     : {log.get('entity', 'N/A')}")
         print(f"🧵  Trace ID   : {log['trace_id']}")
         print(f"📝  Message    : {log['message']}")
         print(f"📌  Description: {log['description']}\n")
