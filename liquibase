@@ -13,6 +13,16 @@ def is_incident(message):
         "exception", "error", "failed", "refused", "timed out", "unknownhost"
     ])
 
+# 🌍 Extraction de l'environnement
+def parse_environment(service_name):
+    if "int" in service_name.lower():
+        return "DEV"
+    elif "uat" in service_name.lower():
+        return "HF"
+    elif "oat" in service_name.lower():
+        return "HT"
+    return "UNKNOWN"
+
 # 🧪 Regex fallback pour logs non JSON
 def parse_log_fallback_regex(log_line):
     level_match = re.search(r"\b(DEBUG|INFO|WARN|ERROR|TRACE|FATAL)\b", log_line)
@@ -23,11 +33,13 @@ def parse_log_fallback_regex(log_line):
     service = service_match.group(1) if service_match else "unknown_service"
     level = level_match.group(1) if level_match else "N/A"
     entity = entity_match.group(1) if entity_match else "N/A"
+    environment = parse_environment(service)
 
     return {
         "timestamp": "N/A",
         "level": level,
         "service_name": service,
+        "environment": environment,
         "trace_id": trace_match.group(1) if trace_match else "N/A",
         "entity": entity,
         "message": log_line,
@@ -57,8 +69,8 @@ def parse_otel_log(log_line, default_service_name="unknown_service", raw_ts=None
             default_service_name
         )
         message = obj.get("body") or obj.get("message") or str(obj)
+        environment = parse_environment(service)
 
-        # 🔎 Extraction trace_id depuis message si non présent dans l'objet
         trace_id = (
             obj.get("trace_id") or
             obj.get("traceId") or
@@ -69,7 +81,6 @@ def parse_otel_log(log_line, default_service_name="unknown_service", raw_ts=None
             match = re.search(r'"?traceid"?[:=]\s*"?([a-fA-F0-9\-]{8,})"?', message, re.IGNORECASE)
             trace_id = match.group(1) if match else "N/A"
 
-        # 🔎 Extraction entity depuis message
         entity_match = re.search(r'Entity\s+([A-Z]{2})', message)
         entity = entity_match.group(1) if entity_match else "N/A"
 
@@ -83,6 +94,7 @@ def parse_otel_log(log_line, default_service_name="unknown_service", raw_ts=None
             "timestamp": timestamp,
             "level": level,
             "service_name": service,
+            "environment": environment,
             "trace_id": trace_id,
             "entity": entity,
             "message": message,
@@ -119,7 +131,6 @@ def get_logs():
 
             for entry in stream.get("values", []):
                 raw_ts, log_line = entry
-
                 print("\n🔍 Log brut récupéré :")
                 print(log_line)
 
@@ -168,13 +179,14 @@ def detect_failing_endpoints(logs):
 def display_logs(logs):
     print("\n📋 Logs récupérés :\n")
     for log in logs:
-        print(f"⏱️  Time       : {log['timestamp']}")
-        print(f"🪵  Level      : {log['level']}")
-        print(f"🧩  Service    : {log['service_name']} {log['incident']}")
-        print(f"🏷️  Entity     : {log.get('entity', 'N/A')}")
-        print(f"🧵  Trace ID   : {log['trace_id']}")
-        print(f"📝  Message    : {log['message']}")
-        print(f"📌  Description: {log['description']}\n")
+        print(f"⏱️  Time         : {log['timestamp']}")
+        print(f"🪵  Level        : {log['level']}")
+        print(f"🧩  Service      : {log['service_name']} {log['incident']}")
+        print(f"🌍  Environnement: {log['environment']}")
+        print(f"🏷️  Entity       : {log.get('entity', 'N/A')}")
+        print(f"🧵  Trace ID     : {log['trace_id']}")
+        print(f"📝  Message      : {log['message']}")
+        print(f"📌  Description  : {log['description']}\n")
 
 # 💾 Sauvegarde incidents
 def save_incidents_to_file(logs, filename="incidents.txt"):
