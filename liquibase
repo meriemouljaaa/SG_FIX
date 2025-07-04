@@ -16,13 +16,12 @@ def is_incident(message):
 # 🧪 Regex fallback pour logs non JSON
 def parse_log_fallback_regex(log_line):
     level_match = re.search(r"\b(DEBUG|INFO|WARN|ERROR|TRACE|FATAL)\b", log_line)
-    trace_match = re.search(r"traceId[=:] ?([a-fA-F0-9\-]+)", log_line)
+    trace_match = re.search(r'"?traceid"?[:=]\s*"?([a-fA-F0-9\-]{8,})"?', log_line, re.IGNORECASE)
     service_match = re.search(r"\[([^\]]+)\]", log_line)
+    entity_match = re.search(r'Entity\s+([A-Z]{2})', log_line)
 
     service = service_match.group(1) if service_match else "unknown_service"
     level = level_match.group(1) if level_match else "N/A"
-
-    entity_match = re.search(r'Entity\s+([A-Z]{2})', log_line)
     entity = entity_match.group(1) if entity_match else "N/A"
 
     return {
@@ -40,7 +39,7 @@ def parse_log_fallback_regex(log_line):
         })
     }
 
-# 🔍 Parsing de log
+# 🔍 Parsing de log JSON (OpenTelemetry)
 def parse_otel_log(log_line, default_service_name="unknown_service", raw_ts=None):
     try:
         obj = json.loads(log_line)
@@ -59,13 +58,18 @@ def parse_otel_log(log_line, default_service_name="unknown_service", raw_ts=None
         )
         message = obj.get("body") or obj.get("message") or str(obj)
 
+        # 🔎 Extraction trace_id depuis message si non présent dans l'objet
         trace_id = (
             obj.get("trace_id") or
             obj.get("traceId") or
             obj.get("attributes", {}).get("trace_id") or
-            resource.get("trace_id") or "N/A"
+            resource.get("trace_id")
         )
+        if not trace_id:
+            match = re.search(r'"?traceid"?[:=]\s*"?([a-fA-F0-9\-]{8,})"?', message, re.IGNORECASE)
+            trace_id = match.group(1) if match else "N/A"
 
+        # 🔎 Extraction entity depuis message
         entity_match = re.search(r'Entity\s+([A-Z]{2})', message)
         entity = entity_match.group(1) if entity_match else "N/A"
 
@@ -116,11 +120,9 @@ def get_logs():
             for entry in stream.get("values", []):
                 raw_ts, log_line = entry
 
-                # 🔍 Affiche le log brut
                 print("\n🔍 Log brut récupéré :")
                 print(log_line)
 
-                # 💾 Sauvegarde du log brut
                 with open("raw_logs.txt", "a", encoding="utf-8") as f:
                     f.write(log_line + "\n")
 
@@ -140,7 +142,6 @@ def detect_failing_endpoints(logs):
         trace_id = log.get("trace_id")
         if not trace_id or trace_id == "N/A":
             continue
-
         trace_map.setdefault(trace_id, []).append(log)
 
     failing_endpoints = []
