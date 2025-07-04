@@ -3,7 +3,6 @@ import requests
 import time
 import json
 import re
-
 from generate_description import generate_description
 
 LOKI_URL = "http://localhost:3100/loki/api/v1/query_range"
@@ -14,18 +13,38 @@ def is_incident(message):
         "exception", "error", "failed", "refused", "timed out", "unknownhost"
     ])
 
-# 🔍 Parsing de log avec enrichissement
+# 🧪 Regex fallback pour logs non JSON
+def parse_log_fallback_regex(log_line):
+    level_match = re.search(r"\b(DEBUG|INFO|WARN|ERROR|TRACE|FATAL)\b", log_line)
+    trace_match = re.search(r"traceId[=:] ?([a-fA-F0-9\-]+)", log_line)
+    service_match = re.search(r"\[([^\]]+)\]", log_line)
+    body_match = re.search(r'body="?([^"]+)"?', log_line)
 
+    service = service_match.group(1) if service_match else "unknown_service"
+    level = level_match.group(1) if level_match else "N/A"
+
+    return {
+        "timestamp": "N/A",
+        "level": level,
+        "service_name": service,
+        "trace_id": trace_match.group(1) if trace_match else "N/A",
+        "message": log_line,
+        "incident": "🚨" if is_incident(log_line) else "",
+        "description": generate_description({
+            "message": log_line,
+            "service_name": service,
+            "level": level
+        })
+    }
+
+# 🔍 Parsing de log
 def parse_otel_log(log_line, default_service_name="unknown_service", raw_ts=None):
     try:
         obj = json.loads(log_line)
-
-        # 🔁 timestamp récupéré du paramètre raw_ts (en nanosecondes)
         timestamp = (
-            datetime.utcfromtimestamp(int(raw_ts[:10]))  # convert to datetime
+            datetime.datetime.utcfromtimestamp(int(raw_ts[:10]))
             .strftime('%Y-%m-%d %H:%M:%S') if raw_ts else "N/A"
         )
-
         level = obj.get("severity") or obj.get("severityText") or obj.get("level") or "N/A"
         resource = obj.get("resource", {}) or {}
 
@@ -37,74 +56,38 @@ def parse_otel_log(log_line, default_service_name="unknown_service", raw_ts=None
         )
         message = obj.get("body") or obj.get("message") or str(obj)
 
-    except (json.JSONDecodeError, TypeError):
-        timestamp = datetime.utcfromtimestamp(int(raw_ts[:10])).strftime('%Y-%m-%d %H:%M:%S') if raw_ts else "N/A"
-        level = "N/A"
-        message = log_line[:150]
-        service = default_service_name
-
-    description = generate_description({
-        "message": message,
-        "service_name": service,
-        "level": level
-    })
-
-    return {
-        "timestamp": timestamp,
-        "level": level,
-        "service_name": service,
-        "message": message,
-        "incident": "🚨" if is_incident(message) else "",
-        "description": description
-    }
-    try:
-        obj = json.loads(log_line)
-        timestamp = obj.get("timestamp") or obj.get("Time") or "N/A"
-        level = obj.get("severity") or obj.get("severityText") or obj.get("level") or "N/A"
-        resource = obj.get("resource", {}) or {}
-
-        service = (
-            resource.get("service.name") or
-            obj.get("service.name") or
-            obj.get("service_name") or
-            default_service_name
+        trace_id = (
+            obj.get("trace_id") or
+            obj.get("traceId") or
+            obj.get("attributes", {}).get("trace_id") or
+            resource.get("trace_id") or "N/A"
         )
-        message = obj.get("body") or obj.get("message") or str(obj)
+
+        description = generate_description({
+            "message": message,
+            "service_name": service,
+            "level": level
+        })
+
+        return {
+            "timestamp": timestamp,
+            "level": level,
+            "service_name": service,
+            "trace_id": trace_id,
+            "message": message,
+            "incident": "🚨" if is_incident(message) else "",
+            "description": description
+        }
 
     except (json.JSONDecodeError, TypeError):
-        match = re.match(r"(?P<time>\d{4}-\d{2}-\d{2}T[\d:.]+Z)?\s*(?P<level>[A-Z]+)\s.*?-{3,}\s.*?\]\s+(?P<msg>.*)", log_line)
-        if match:
-            timestamp = match.group("time")
-            level = match.group("level")
-            message = match.group("msg")[:150]
-        else:
-            timestamp = "N/A"
-            level = "N/A"
-            message = log_line[:150]
-
-        service = default_service_name
-
-    description = generate_description({
-        "message": message,
-        "service_name": service,
-        "level": level
-    })
-
-    return {
-        "timestamp": timestamp,
-        "level": level,
-        "service_name": service,
-        "message": message,
-        "incident": "🚨" if is_incident(message) else "",
-        "description": description
-    }
+        return parse_log_fallback_regex(log_line)
 
 # 📡 Récupération des logs depuis Loki
 def get_logs():
     now = int(time.time() * 1_000_000_000)
-    start = now - 60 * 1_000_000_000  # 60 secondes
+    start = now - 60 * 1_000_000_000
 
-    query = '{service_name=~".+"}'
+    query = '{service_name=~".+"}'  # Modifier selon vos labels Loki
 
     params = {
         "query": query,
@@ -113,6 +96,7 @@ def get_logs():
         "limit": 100,
         "direction": "forward"
     }
+
     try:
         response = requests.get(LOKI_URL, params=params)
         response.raise_for_status()
@@ -121,9 +105,20 @@ def get_logs():
         logs = []
         for stream in data.get("data", {}).get("result", []):
             service_label = stream.get("stream", {}).get("service_name", "unknown_service")
+
             for entry in stream.get("values", []):
-                log_line = entry[1]
-                parsed = parse_otel_log(log_line, service_label)
+                raw_ts, log_line = entry
+
+                # 🔍 Affiche le log brut
+                print("\n🔍 Log brut récupéré :")
+                print(log_line)
+
+                # 💾 Sauvegarde du log brut
+                with open("raw_logs.txt", "a", encoding="utf-8") as f:
+                    f.write(log_line + "\n")
+
+                # Parsing normal
+                parsed = parse_otel_log(log_line, service_label, raw_ts)
                 logs.append(parsed)
 
         return logs
@@ -132,23 +127,35 @@ def get_logs():
         print(f"❌ Erreur lors de l'appel à Loki : {e}")
         return []
 
-# 🧾 Format JSON avec titre, description, application, time
-def format_incidents_as_json(logs):
-    incidents = [log for log in logs if log["incident"] == "🚨"]
-    formatted = []
+# 🧵 Analyse des erreurs par trace_id
+def detect_failing_endpoints(logs):
+    trace_map = {}
+    for log in logs:
+        trace_id = log.get("trace_id")
+        if not trace_id or trace_id == "N/A":
+            continue
 
-    for log in incidents:
-        title_match = re.search(r"\b(\w+Exception)\b", log["message"])
-        title = title_match.group(1) if title_match else "Incident détecté"
+        trace_map.setdefault(trace_id, []).append(log)
 
-        formatted.append({
-            "title": title,
-            "description": log["description"],
-            "application": log["service_name"],
-            "time": log["timestamp"]
-        })
+    failing_endpoints = []
+    for trace_id, entries in trace_map.items():
+        has_error = any(log["level"].upper() == "ERROR" for log in entries)
+        if has_error:
+            endpoint = None
+            for log in entries:
+                match = re.search(r"(GET|POST|PUT|DELETE)\s+(/[^\s]+)", log["message"])
+                if match:
+                    endpoint = match.group(2)
+                    break
+            failing_endpoints.append({
+                "trace_id": trace_id,
+                "endpoint": endpoint or "unknown",
+                "service": entries[0]["service_name"],
+                "error_message": [l["message"] for l in entries if l["level"].upper() == "ERROR"],
+                "timestamp": entries[0]["timestamp"]
+            })
 
-    return formatted
+    return failing_endpoints
 
 # 🖥️ Affichage console
 def display_logs(logs):
@@ -157,10 +164,11 @@ def display_logs(logs):
         print(f"⏱️  Time       : {log['timestamp']}")
         print(f"🪵  Level      : {log['level']}")
         print(f"🧩  Service    : {log['service_name']} {log['incident']}")
+        print(f"🧵  Trace ID   : {log['trace_id']}")
         print(f"📝  Message    : {log['message']}")
         print(f"📌  Description: {log['description']}\n")
 
-# 💾 Sauvegarde des incidents uniquement
+# 💾 Sauvegarde incidents
 def save_incidents_to_file(logs, filename="incidents.txt"):
     incidents = [log for log in logs if log["incident"] == "🚨"]
     if not incidents:
@@ -179,9 +187,10 @@ def run_loop():
             print(f"\n✅ {len(logs)} logs récupérés")
             display_logs(logs)
 
-            json_response = format_incidents_as_json(logs)
-            print("\n📤 Format JSON des incidents détectés :\n")
-            print(json.dumps(json_response, indent=4, ensure_ascii=False))
+            errors = detect_failing_endpoints(logs)
+            if errors:
+                print("\n❗ Endpoints en erreur détectés :")
+                print(json.dumps(errors, indent=4, ensure_ascii=False))
 
             save_incidents_to_file(logs)
         else:
