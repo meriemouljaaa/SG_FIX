@@ -1,214 +1,92 @@
-import datetime
-import requests
-import time
-import json
-import re
-from generate_description import generate_description
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.6.xsd">
 
-LOKI_URL = "http://localhost:3100/loki/api/v1/query_range"
-BACKEND_URL = "http://localhost:5000/api/logs"  # Remplace par ton URL backend
+    <changeSet id="create-incident-table" author="oulja">
 
-# ✅ Détection d'incident
-def is_incident(message):
-    return any(keyword in message.lower() for keyword in [
-        "exception", "error", "failed", "refused", "timed out", "unknownhost"
-    ])
+        <createTable tableName="incident">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true"/>
+            </column>
 
-# 🔍 Environnement depuis service name
-def extract_environment(service_name):
-    if "-int-" in service_name:
-        return "dev"
-    elif "-uat-" in service_name:
-        return "HF"
-    elif "-oat-" in service_name:
-        return "HT"
-    return "unknown"
+            <!-- Champ discriminateur -->
+            <column name="incident_type" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
 
-# 🧪 Regex fallback pour logs non JSON
-def parse_log_fallback_regex(log_line):
-    level_match = re.search(r"\b(DEBUG|INFO|WARN|ERROR|TRACE|FATAL)\b", log_line)
-    trace_match = re.search(r'"?traceid"?[:=]\s*"?([a-fA-F0-9\-]{8,})"?', log_line, re.IGNORECASE)
-    service_match = re.search(r"\[([^\]]+)\]", log_line)
-    entity_match = re.search(r'Entity\s+([A-Z]{2})', log_line)
+            <!-- Champs communs -->
+            <column name="titre" type="VARCHAR(255)"/>
+            <column name="description" type="TEXT"/>
+            <column name="dateDeclaration" type="TIMESTAMP"/>
+            <column name="statut" type="VARCHAR(50)"/>
+            <column name="priorite" type="VARCHAR(50)"/>
+            <column name="gravite" type="VARCHAR(50)"/>
+            <column name="environnement" type="VARCHAR(50)"/>
+            <column name="du" type="VARCHAR(50)"/>
 
-    service = service_match.group(1) if service_match else "unknown_service"
-    level = level_match.group(1) if level_match else "N/A"
-    entity = entity_match.group(1) if entity_match else "N/A"
-    environment = extract_environment(service)
+            <!-- Champs spécifiques aux incidents MANUELS -->
+            <column name="dateAttribution" type="TIMESTAMP"/>
+            <column name="dateResolution" type="TIMESTAMP"/>
+            <column name="client_id" type="VARCHAR(255)"/>
+            <column name="coe_dev_id" type="VARCHAR(255)"/>
+            <column name="service_id" type="BIGINT"/>
 
-    return {
-        "timestamp": "N/A",
-        "level": level,
-        "service_name": service,
-        "environment": environment,
-        "trace_id": trace_match.group(1) if trace_match else "N/A",
-        "entity": entity,
-        "message": log_line,
-        "incident": "🚨" if is_incident(log_line) else "",
-        "description": generate_description({
-            "message": log_line,
-            "service_name": service,
-            "level": level
-        })
-    }
+            <!-- Champs spécifiques aux incidents AUTOMATIQUES -->
+            <column name="trace_id" type="VARCHAR(255)"/>
+            <column name="entity" type="VARCHAR(255)"/>
+        </createTable>
 
-# 🔍 Parsing JSON (OpenTelemetry)
-def parse_otel_log(log_line, default_service_name="unknown_service", raw_ts=None):
-    try:
-        obj = json.loads(log_line)
-        timestamp = (
-            datetime.datetime.utcfromtimestamp(int(raw_ts[:10]))
-            .strftime('%Y-%m-%d %H:%M:%S') if raw_ts else "N/A"
-        )
-        level = obj.get("severity") or obj.get("severityText") or obj.get("level") or "N/A"
-        resource = obj.get("resource", {}) or {}
-        service = (
-            resource.get("service.name") or
-            obj.get("service.name") or
-            obj.get("service_name") or
-            default_service_name
-        )
-        environment = extract_environment(service)
-        message = obj.get("body") or obj.get("message") or str(obj)
+        <!-- Relations FK -->
+        <addForeignKeyConstraint baseTableName="incident"
+                                 baseColumnNames="client_id"
+                                 constraintName="fk_incident_client"
+                                 referencedTableName="user"
+                                 referencedColumnNames="sub"/>
 
-        trace_id = (
-            obj.get("trace_id") or
-            obj.get("traceId") or
-            obj.get("attributes", {}).get("trace_id") or
-            resource.get("trace_id")
-        )
-        if not trace_id:
-            match = re.search(r'"?traceid"?[:=]\s*"?([a-fA-F0-9\-]{8,})"?', message, re.IGNORECASE)
-            trace_id = match.group(1) if match else "N/A"
+        <addForeignKeyConstraint baseTableName="incident"
+                                 baseColumnNames="coe_dev_id"
+                                 constraintName="fk_incident_coedev"
+                                 referencedTableName="user"
+                                 referencedColumnNames="sub"/>
 
-        entity_match = re.search(r'Entity\s+([A-Z]{2})', message)
-        entity = entity_match.group(1) if entity_match else "N/A"
+        <addForeignKeyConstraint baseTableName="incident"
+                                 baseColumnNames="service_id"
+                                 constraintName="fk_incident_service"
+                                 referencedTableName="service"
+                                 referencedColumnNames="id"/>
+    </changeSet>
 
-        description = generate_description({
-            "message": message,
-            "service_name": service,
-            "level": level
-        })
+    <!-- Table pour file paths (MANUEL) -->
+    <changeSet id="create-incident-filepaths" author="oulja">
+        <createTable tableName="incident_file_paths">
+            <column name="incident_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="file_path" type="VARCHAR(500)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="incident_file_paths"
+                                 baseColumnNames="incident_id"
+                                 constraintName="fk_filepaths_incident"
+                                 referencedTableName="incident"
+                                 referencedColumnNames="id"/>
+    </changeSet>
 
-        return {
-            "timestamp": timestamp,
-            "level": level,
-            "service_name": service,
-            "environment": environment,
-            "trace_id": trace_id,
-            "entity": entity,
-            "message": message,
-            "incident": "🚨" if is_incident(message) else "",
-            "description": description
-        }
+    <!-- Table pour tags -->
+    <changeSet id="create-incident-tags" author="oulja">
+        <createTable tableName="incident_tags">
+            <column name="incident_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tag" type="VARCHAR(255)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="incident_tags"
+                                 baseColumnNames="incident_id"
+                                 constraintName="fk_tags_incident"
+                                 referencedTableName="incident"
+                                 referencedColumnNames="id"/>
+    </changeSet>
 
-    except (json.JSONDecodeError, TypeError):
-        return parse_log_fallback_regex(log_line)
-
-# 📡 Récupération des logs depuis Loki
-def get_logs():
-    now = int(time.time() * 1_000_000_000)
-    start = now - 60 * 1_000_000_000
-
-    query = '{service_name=~".+"}'
-
-    params = {
-        "query": query,
-        "start": start,
-        "end": now,
-        "limit": 100,
-        "direction": "forward"
-    }
-
-    try:
-        response = requests.get(LOKI_URL, params=params)
-        response.raise_for_status()
-        data = response.json()
-
-        logs = []
-        for stream in data.get("data", {}).get("result", []):
-            service_label = stream.get("stream", {}).get("service_name", "unknown_service")
-
-            for entry in stream.get("values", []):
-                raw_ts, log_line = entry
-
-                # 🔍 Affiche le log brut
-                print("\n🔍 Log brut récupéré :")
-                print(log_line)
-
-                parsed = parse_otel_log(log_line, service_label, raw_ts)
-                logs.append(parsed)
-
-        return logs
-
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Erreur lors de l'appel à Loki : {e}")
-        return []
-
-# 📤 Envoi au backend
-def send_to_backend(logs, backend_url=BACKEND_URL):
-    try:
-        payload = [{
-            "timestamp": log["timestamp"],
-            "level": log["level"],
-            "service_name": log["service_name"],
-            "environment": log["environment"],
-            "entity": log["entity"],
-            "trace_id": log["trace_id"],
-            "message": log["message"],
-            "description": log["description"]
-        } for log in logs]
-
-        response = requests.post(
-            backend_url,
-            json=payload,
-            headers={"Content-Type": "application/json"}
-        )
-
-        if response.status_code == 200:
-            print("✅ Logs envoyés avec succès au backend.")
-        else:
-            print(f"❌ Envoi échoué : {response.status_code} - {response.text}")
-
-    except Exception as e:
-        print(f"❌ Erreur envoi backend : {e}")
-
-# 🖥️ Affichage
-def display_logs(logs):
-    print("\n📋 Logs récupérés :\n")
-    for log in logs:
-        print(f"⏱️  Time       : {log['timestamp']}")
-        print(f"🪵  Level      : {log['level']}")
-        print(f"🧩  Service    : {log['service_name']} {log['incident']}")
-        print(f"🌍  Environnement : {log['environment']}")
-        print(f"🏷️  Entity     : {log['entity']}")
-        print(f"🧵  Trace ID   : {log['trace_id']}")
-        print(f"📝  Message    : {log['message']}")
-        print(f"📌  Description: {log['description']}\n")
-
-# 💾 Sauvegarde incidents
-def save_incidents_to_file(logs, filename="incidents.txt"):
-    incidents = [log for log in logs if log["incident"] == "🚨"]
-    if not incidents:
-        return
-    with open(filename, "a", encoding="utf-8") as f:
-        for incident in incidents:
-            f.write(json.dumps(incident, ensure_ascii=False) + "\n")
-
-# 🔁 Boucle
-def run_loop():
-    print("📡 Récupération des logs OpenTelemetry depuis Loki...\n")
-    while True:
-        logs = get_logs()
-        if logs:
-            print(f"\n✅ {len(logs)} logs récupérés")
-            display_logs(logs)
-            send_to_backend(logs)
-            save_incidents_to_file(logs)
-        else:
-            print("⚠️ Aucun log trouvé.")
-        time.sleep(10)
-
-# ▶️ Start
-if __name__ == "__main__":
-    run_loop()
+</databaseChangeLog>
