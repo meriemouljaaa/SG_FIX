@@ -1,92 +1,38 @@
-<databaseChangeLog
-        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="
-          http://www.liquibase.org/xml/ns/dbchangelog
-          http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.6.xsd">
+@Repository
+public interface IncidentAutomatiqueRepository extends JpaRepository<IncidentAutomatiqueEntity, Long> {
 
-    <changeSet id="create-incident-table" author="oulja">
+    List<IncidentAutomatiqueEntity> findByEntity(String entity);
 
-        <createTable tableName="incident">
-            <column name="id" type="BIGINT" autoIncrement="true">
-                <constraints primaryKey="true"/>
-            </column>
+    IncidentAutomatiqueEntity findByTraceId(String traceId);
+}
+@Repository
+public interface IncidentManuelRepository extends JpaRepository<IncidentManuelEntity, Long> {
 
-            <!-- Champ discriminateur -->
-            <column name="incident_type" type="VARCHAR(20)">
-                <constraints nullable="false"/>
-            </column>
+    List<IncidentManuelEntity> findByCoeDev(UserEntity coeDev);
 
-            <!-- Champs communs -->
-            <column name="titre" type="VARCHAR(255)"/>
-            <column name="description" type="TEXT"/>
-            <column name="dateDeclaration" type="TIMESTAMP"/>
-            <column name="statut" type="VARCHAR(50)"/>
-            <column name="priorite" type="VARCHAR(50)"/>
-            <column name="gravite" type="VARCHAR(50)"/>
-            <column name="environnement" type="VARCHAR(50)"/>
-            <column name="du" type="VARCHAR(50)"/>
+    List<IncidentManuelEntity> findByClient(UserEntity client);
 
-            <!-- Champs spécifiques aux incidents MANUELS -->
-            <column name="dateAttribution" type="TIMESTAMP"/>
-            <column name="dateResolution" type="TIMESTAMP"/>
-            <column name="client_id" type="VARCHAR(255)"/>
-            <column name="coe_dev_id" type="VARCHAR(255)"/>
-            <column name="service_id" type="BIGINT"/>
+    List<IncidentManuelEntity> findByService(ServiceEntity service);
+}
+@Repository
+public interface IncidentJpaRepository extends JpaRepository<IncidentEntity, Long> {
 
-            <!-- Champs spécifiques aux incidents AUTOMATIQUES -->
-            <column name="trace_id" type="VARCHAR(255)"/>
-            <column name="entity" type="VARCHAR(255)"/>
-        </createTable>
+    // Tous les incidents (manuel + automatique)
+    List<IncidentEntity> findAll();
 
-        <!-- Relations FK -->
-        <addForeignKeyConstraint baseTableName="incident"
-                                 baseColumnNames="client_id"
-                                 constraintName="fk_incident_client"
-                                 referencedTableName="user"
-                                 referencedColumnNames="sub"/>
+    // Rechercher par statut commun
+    List<IncidentEntity> findByStatut(StatutIncident statut);
 
-        <addForeignKeyConstraint baseTableName="incident"
-                                 baseColumnNames="coe_dev_id"
-                                 constraintName="fk_incident_coedev"
-                                 referencedTableName="user"
-                                 referencedColumnNames="sub"/>
+    // Rechercher uniquement les incidents manuels
+    @Query("SELECT i FROM IncidentEntity i WHERE TYPE(i) = IncidentManuelEntity")
+    List<IncidentManuelEntity> findAllManuels();
 
-        <addForeignKeyConstraint baseTableName="incident"
-                                 baseColumnNames="service_id"
-                                 constraintName="fk_incident_service"
-                                 referencedTableName="service"
-                                 referencedColumnNames="id"/>
-    </changeSet>
+    // Rechercher uniquement les incidents automatiques
+    @Query("SELECT i FROM IncidentEntity i WHERE TYPE(i) = IncidentAutomatiqueEntity")
+    List<IncidentAutomatiqueEntity> findAllAutomatiques();
 
-    <!-- Table pour file paths (MANUEL) -->
-    <changeSet id="create-incident-filepaths" author="oulja">
-        <createTable tableName="incident_file_paths">
-            <column name="incident_id" type="BIGINT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="file_path" type="VARCHAR(500)"/>
-        </createTable>
-        <addForeignKeyConstraint baseTableName="incident_file_paths"
-                                 baseColumnNames="incident_id"
-                                 constraintName="fk_filepaths_incident"
-                                 referencedTableName="incident"
-                                 referencedColumnNames="id"/>
-    </changeSet>
+    // Ex : Chercher incidents auto par traceId
+    @Query("SELECT i FROM IncidentEntity i WHERE TYPE(i) = IncidentAutomatiqueEntity AND i.traceId = :traceId")
+    IncidentAutomatiqueEntity findAutomatiqueByTraceId(@Param("traceId") String traceId);
 
-    <!-- Table pour tags -->
-    <changeSet id="create-incident-tags" author="oulja">
-        <createTable tableName="incident_tags">
-            <column name="incident_id" type="BIGINT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="tag" type="VARCHAR(255)"/>
-        </createTable>
-        <addForeignKeyConstraint baseTableName="incident_tags"
-                                 baseColumnNames="incident_id"
-                                 constraintName="fk_tags_incident"
-                                 referencedTableName="incident"
-                                 referencedColumnNames="id"/>
-    </changeSet>
-
-</databaseChangeLog>
+}
