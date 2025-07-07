@@ -1,38 +1,6 @@
 @Repository
-public interface IncidentAutomatiqueRepository extends JpaRepository<IncidentAutomatiqueEntity, Long> {
-
-    List<IncidentAutomatiqueEntity> findByEntity(String entity);
-
-    IncidentAutomatiqueEntity findByTraceId(String traceId);
-}
-@Repository
-public interface IncidentManuelRepository extends JpaRepository<IncidentManuelEntity, Long> {
-
-    List<IncidentManuelEntity> findByCoeDev(UserEntity coeDev);
-
-    List<IncidentManuelEntity> findByClient(UserEntity client);
-
-    List<IncidentManuelEntity> findByService(ServiceEntity service);
-}
-@Repository
 public interface IncidentJpaRepository extends JpaRepository<IncidentEntity, Long> {
 
-    // Tous les incidents (manuel + automatique)
-    List<IncidentEntity> findAll();
-
-    // Rechercher par statut commun
-    List<IncidentEntity> findByStatut(StatutIncident statut);
-
-    // Rechercher uniquement les incidents manuels
     @Query("SELECT i FROM IncidentEntity i WHERE TYPE(i) = IncidentManuelEntity")
     List<IncidentManuelEntity> findAllManuels();
-
-    // Rechercher uniquement les incidents automatiques
-    @Query("SELECT i FROM IncidentEntity i WHERE TYPE(i) = IncidentAutomatiqueEntity")
-    List<IncidentAutomatiqueEntity> findAllAutomatiques();
-
-    // Ex : Chercher incidents auto par traceId
-    @Query("SELECT i FROM IncidentEntity i WHERE TYPE(i) = IncidentAutomatiqueEntity AND i.traceId = :traceId")
-    IncidentAutomatiqueEntity findAutomatiqueByTraceId(@Param("traceId") String traceId);
-
 }
