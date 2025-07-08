@@ -1,6 +1,72 @@
-@Repository
-public interface IncidentJpaRepository extends JpaRepository<IncidentEntity, Long> {
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.socket.config.annotation.EnableWebSocket;
+import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 
-    @Query("SELECT i FROM IncidentEntity i WHERE TYPE(i) = IncidentManuelEntity")
-    List<IncidentManuelEntity> findAllManuels();
+@Configuration
+@EnableWebSocket
+public class WebSocketConfig implements WebSocketConfigurer {
+
+    @Override
+    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+        registry.addHandler(new IncidentWebSocketHandler(), "/ws/incidents").setAllowedOrigins("*");
+    }
+}
+
+import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.TextWebSocketHandler;
+import java.io.IOException;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+public class IncidentWebSocketHandler extends TextWebSocketHandler {
+
+    private final CopyOnWriteArrayList<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
+
+    @Override
+    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        sessions.add(session);
+    }
+
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+        sessions.remove(session);
+    }
+
+    public void sendIncidentNotification(String incidentDetails) throws IOException {
+        TextMessage message = new TextMessage(incidentDetails);
+        for (WebSocketSession session : sessions) {
+            if (session.isOpen()) {
+                session.sendMessage(message);
+            }
+        }
+    }
+}
+import org.springframework.stereotype.Service;
+import java.io.IOException;
+
+@Service
+public class IncidentService {
+
+    private final IncidentWebSocketHandler webSocketHandler;
+
+    public IncidentService(IncidentWebSocketHandler webSocketHandler) {
+        this.webSocketHandler = webSocketHandler;
+    }
+
+    public void createIncident(String incidentId, String description) {
+        // Logique métier pour créer un incident
+        // Exemple : Sauvegarde en base de données
+
+        // Envoyer une notification en temps réel
+        String notification = String.format("{\"id\": \"%s\", \"user\": \"Système\", \"action\": \"Incident créé\", \"time\": \"Maintenant\", \"details\": \"%s\"}", incidentId, description);
+        try {
+            webSocketHandler.sendIncidentNotification(notification);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Autres méthodes (updateStatus, addComment) peuvent aussi envoyer des notifications
 }
