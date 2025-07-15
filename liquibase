@@ -1,43 +1,129 @@
-import com.oracle.bmc.objectstorage.ObjectStorage;
-import com.oracle.bmc.objectstorage.requests.PutObjectRequest;
-import com.oracle.bmc.objectstorage.model.PutObjectRequest.Builder;
-import com.oracle.bmc.objectstorage.model.PutObjectRequest.RequestClientOptions;
-import com.oracle.bmc.objectstorage.responses.PutObjectResponse;
+'use client';
 
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.stereotype.Service;
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import {
+  FaSearch,
+  FaCalendarCheck,
+  FaBell,
+  FaServer,
+  FaChartPie,
+  FaTasks,
+  FaUsers,
+  FaCloudSun,
+  FaSignOutAlt,
+  FaRocket,
+  FaClipboardList,
+  FaBuilding,
+  FaUserShield,
+  FaPlusCircle,
+  FaHistory,
+  FaBug,
+} from "react-icons/fa";
+import { motion } from "framer-motion";
 
-import java.io.InputStream;
+const Sidebar = () => {
+  const router = useRouter();
+  const [role, setRole] = useState<string | null>(null);
 
-@Service
-public class ObjectStorageService {
-
-    private final ObjectStorage objectStorage;
-
-    public ObjectStorageService(ObjectStorage objectStorage) {
-        this.objectStorage = objectStorage;
+  useEffect(() => {
+    const storedRole = localStorage.getItem("role");
+    if (storedRole) {
+      setRole(storedRole);
     }
+  }, []);
 
-    public void uploadFile(String namespace, String bucketName, String objectName, MultipartFile file) throws Exception {
-        InputStream inputStream = file.getInputStream();
-        long contentLength = file.getSize();
-        String contentType = file.getContentType();
+  const handleNavigation = (path: string) => router.push(path);
 
-        PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
-                .bucketName(bucketName)
-                .namespaceName(namespace)
-                .objectName(objectName)
-                .contentLength(contentLength)
-                .putObjectBody(inputStream)
-                .contentType(contentType);
+  const MenuItem = ({
+    label,
+    icon,
+    path,
+    color = "text-white",
+  }: {
+    label: string;
+    icon: React.ReactNode;
+    path?: string;
+    color?: string;
+  }) => (
+    <motion.div
+      whileHover={{ scale: 1.05 }}
+      className={`flex flex-col items-center space-y-1 py-2 px-3 rounded cursor-pointer hover:bg-red-700 transition-all w-full text-center ${path ? "hover:scale-[1.01]" : "cursor-default"}`}
+      onClick={() => path && handleNavigation(path)}
+    >
+      <div className={`text-2xl ${color}`}>{icon}</div>
+      <span className="text-base text-white font-medium">{label}</span>
+    </motion.div>
+  );
 
-        // ✅ Important : ajouter l'option de lecture avec un buffer assez grand
-        requestBuilder.requestClientOptions(
-                new RequestClientOptions()
-                        .withReadLimit((int) contentLength)
-        );
+  const SectionTitle = ({ title }: { title: string }) => (
+    <div className="text-sm uppercase text-gray-100 font-semibold mt-6 mb-2 tracking-wide text-center">{title}</div>
+  );
 
-        PutObjectRequest request = requestBuilder.build();
-        PutObjectResponse response = objectStorage.putObject(request);
-    }
-}
+  if (!role) {
+    return null; // or loading spinner
+  }
+
+  return (
+    <motion.aside
+      initial={{ x: -50, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.4 }}
+      className="fixed top-20 left-0 z-40 bottom-0 w-64 bg-red-600 shadow-sm flex flex-col justify-between items-center p-6 overflow-y-auto gap-6"
+    >
+      <div className="w-full flex flex-col items-center">
+        {role === "User" && (
+          <>
+            <SectionTitle title="Actions" />
+            <MenuItem label="Créer Incident" icon={<FaPlusCircle />} path="/view/create-incident" />
+            <MenuItem label="Incidents en cours" icon={<FaTasks />} path="/view/incident-en-cours" color="text-yellow-200" />
+            <MenuItem label="Historique" icon={<FaHistory />} path="/view/historique-incident" color="text-green-300" />
+            <MenuItem label="Mes Notifications" icon={<FaBell />} path="/view/notification-page" color="text-blue-300" />
+            <MenuItem label="Statistiques" icon={<FaChartPie />} path="/view/user-statistics" color="text-purple-300" />
+          </>
+        )}
+
+        {role === "BA" && (
+          <>
+            <SectionTitle title="Actions" />
+            <MenuItem label="Assigner Incident" icon={<FaServer />} path="/view/assign-incident" color="text-orange-200" />
+            <MenuItem label="Dashboard Employés" icon={<FaUsers />} path="/view/employees-dashboard" color="text-blue-300" />
+            <MenuItem label="Statut Incidents" icon={<FaCalendarCheck />} path="/view/status-tracking" color="text-green-300" />
+            <MenuItem label="Notifications" icon={<FaBell />} path="/view/notification-page" color="text-yellow-300" />
+          </>
+        )}
+
+        {role === "Développeur" && (
+          <>
+            <SectionTitle title="Actions" />
+            <MenuItem label="Prendre en charge" icon={<FaBug />} path="/view/take-charge" color="text-red-300" />
+            <MenuItem label="Mes Notifications" icon={<FaBell />} path="/view/notification-page" color="text-blue-300" />
+            <MenuItem label="Incidents assignés" icon={<FaTasks />} path="/view/assigned-incidents" color="text-orange-300" />
+            <MenuItem label="Résolus" icon={<FaHistory />} path="/view/historique-incident" color="text-green-400" />
+          </>
+        )}
+
+        {role === "Admin" && (
+          <>
+            <SectionTitle title="Actions" />
+            <MenuItem label="Dashboard" icon={<FaChartPie />} path="/view/dashboards" color="text-purple-200" />
+            <MenuItem label="Manage Roles" icon={<FaUserShield />} path="/view/manage-roles" color="text-yellow-200" />
+            <MenuItem label="Employees" icon={<FaUsers />} path="/view/employees-dashboard" color="text-blue-200" />
+            <MenuItem label="Historique Incidents" icon={<FaHistory />} path="/view/historique-incident" color="text-green-200" />
+          </>
+        )}
+
+        <SectionTitle title="Extras" />
+        <MenuItem label="API Weather" icon={<FaCloudSun />} path="/view/api-meteo" color="text-yellow-100" />
+        <MenuItem label="Programme" icon={<FaRocket />} path="/view/startup-program" color="text-indigo-300" />
+        <MenuItem label="Partenariats" icon={<FaBuilding />} path="/view/partners" color="text-pink-200" />
+      </div>
+
+      <div className="border-t border-red-400 pt-4 w-full flex justify-center">
+        <MenuItem label="Logout" icon={<FaSignOutAlt />} path="/login" color="text-red-200" />
+      </div>
+    </motion.aside>
+  );
+};
+
+export default Sidebar;
