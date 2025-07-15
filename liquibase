@@ -1,6 +1,2 @@
-html, body {
-  margin: 0;
-  padding: 0;
-  overflow: hidden; /* Empêche scroll du body */
-  height: 100%;
-}
+<aside className="fixed top-20 left-0 bottom-0 w-64 z-40 bg-red-600 p-4 overflow-y-auto">
+<header className="fixed top-0 left-0 right-0 z-50 bg-white shadow px-6 py-3 h-20 flex items-center justify-between">
