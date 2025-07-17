@@ -1,2 +1,133 @@
-<aside className="fixed top-20 left-0 bottom-0 w-64 z-40 bg-red-600 p-4 overflow-y-auto">
-<header className="fixed top-0 left-0 right-0 z-50 bg-white shadow px-6 py-3 h-20 flex items-center justify-between">
+import datetime
+import requests
+import time
+import json
+import re
+from generate_description import generate_description
+
+LOKI_URL = "http://localhost:3100/loki/api/v1/query_range"
+
+# ✅ Fonction : Détection d'incident
+def is_incident(message):
+    return any(keyword in message.lower() for keyword in [
+        "exception", "error", "failed", "refused", "timed out", "unknownhost"
+    ])
+
+# ✅ Fonction : Extraire environnement
+def extract_env(service_name):
+    if "-int-" in service_name:
+        return "DEV"
+    elif "-uat-" in service_name:
+        return "HF"
+    elif "-oat-" in service_name:
+        return "HT"
+    return "PROD"
+
+# ✅ Fonction : Récupération des logs depuis Loki
+def get_logs():
+    now = datetime.datetime.utcnow()
+    start = now - datetime.timedelta(seconds=60)
+    params = {
+        "query": '{job="otel-logs"}',
+        "start": int(start.timestamp() * 1e9),
+        "end": int(now.timestamp() * 1e9),
+        "direction": "forward",
+        "limit": 100
+    }
+    response = requests.get(LOKI_URL, params=params)
+    results = response.json().get("data", {}).get("result", [])
+    logs = []
+
+    for result in results:
+        stream = result.get("stream", {})
+        values = result.get("values", [])
+        for value in values:
+            try:
+                log = json.loads(value[1])
+                message = log.get("body", "")
+                service = log.get("resource", {}).get("service.name", "unknown-service")
+                env = extract_env(service)
+                trace_id = log.get("traceId", "unknown-trace")
+                entity_match = re.search(r"\bSG_\w+", message)
+                entity = entity_match.group(0) if entity_match else "unknown"
+
+                description = generate_description(message)
+                incident_flag = "🚨" if is_incident(message) else ""
+
+                logs.append({
+                    "time": datetime.datetime.utcfromtimestamp(int(value[0]) / 1e9).isoformat(),
+                    "level": log.get("severityText", ""),
+                    "message": message,
+                    "service_name": service,
+                    "environnement": env,
+                    "trace_id": trace_id,
+                    "entité": entity,
+                    "description": description,
+                    "incident": incident_flag
+                })
+            except Exception as e:
+                print("Erreur de parsing log :", e)
+    return logs
+
+# ✅ Fonction : Afficher les logs dans la console
+def display_logs(logs):
+    for log in logs:
+        print(json.dumps(log, indent=2))
+
+# ✅ Fonction : Sauvegarde incidents
+def save_incidents_to_file(logs):
+    incidents = [log for log in logs if log["incident"] == "🚨"]
+    if incidents:
+        with open("incidents.json", "w") as f:
+            json.dump(incidents, f, indent=2)
+
+# ✅ Fonction : Sauvegarde erreurs générales
+def save_errors_to_file(logs):
+    errors = [log for log in logs if "error" in log["level"].lower()]
+    if errors:
+        with open("errors.json", "w") as f:
+            json.dump(errors, f, indent=2)
+
+# ✅ Fonction : Envoi au backend
+def send_incident_to_backend(incident):
+    payload = {
+        "titre": incident["message"][:80],
+        "description": incident["description"],
+        "environnement": incident["environnement"],
+        "application": incident["service_name"],
+        "entité": incident["entité"],
+        "traceId": incident["trace_id"]
+    }
+
+    try:
+        response = requests.post(
+            "http://localhost:8082/incident/auto",
+            json=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        response.raise_for_status()
+        print(f"✅ Incident envoyé : {payload['titre']}")
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Erreur lors de l'envoi : {e}")
+
+# ✅ Boucle principale
+def run_loop():
+    print("📡 Surveillance des logs Loki...\n")
+    while True:
+        logs = get_logs()
+        if logs:
+            print(f"\n✅ {len(logs)} logs récupérés")
+            display_logs(logs)
+
+            incidents = [log for log in logs if log["incident"] == "🚨"]
+            for incident in incidents:
+                send_incident_to_backend(incident)
+
+            save_incidents_to_file(logs)
+            save_errors_to_file(logs)
+        else:
+            print("⚠️ Aucun log trouvé.")
+        time.sleep(10)
+
+if __name__ == "__main__":
+    run_loop()
