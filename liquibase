@@ -1,27 +1,557 @@
-exception
-error
-failed
-refused
-timed out
-unknownhost
-connection reset
-nullpointer
-500
-unreachable
-stacktrace
-transaction failed
-payment failed
-authorization denied
-rejet
-échec
-paiement échoué
-operation cancelled
-solde insuffisant
-carte refusée
-abs error
-core banking
-soap fault
-t24 failure
-reconciliation failed
-data inconsistency
-compte introuvable
+'use client';
+
+import React from 'react';
+import { CheckCircle, Archive, Edit, Save, X } from 'lucide-react';
+
+export type Incident = {
+  id: number;
+  titre: string;
+  description: string;
+  gravite: 'MAJEUR' | 'MODERE' | 'MINEUR';
+  priorite: 'HAUTE' | 'MOYENNE' | 'BASSE';
+  dateDeclaration: string;
+  environnement: string;
+  application: string;
+  traceId: string;
+  entite: string;
+  estValide?: boolean;
+  tags?: string[];
+};
+
+export type EditableIncident = Omit<Incident, 'tags'> & { tags: string };
+
+type Props = {
+  incident: Incident;
+  isEditing: boolean;
+  editingIncident: EditableIncident | null;
+  onEdit: (inc: Incident) => void;
+  onSaveEdit: (updated: EditableIncident) => void; // <-- updated
+  onCancelEdit: () => void;
+  onEditChange: (field: keyof EditableIncident, value: string) => void;
+  onValidate: (id: number) => void;
+  onArchive: (id: number) => void;
+};
+
+export default function AutoIncidentCard({
+  incident, isEditing, editingIncident,
+  onEdit, onSaveEdit, onCancelEdit, onEditChange,
+  onValidate, onArchive,
+}: Props) {
+  const graviteStyles = {
+    MAJEUR: 'bg-red-100 text-red-800',
+    MODERE: 'bg-yellow-100 text-yellow-800',
+    MINEUR: 'bg-green-100 text-green-800',
+  };
+
+  const prioriteStyles = {
+    HAUTE: 'bg-red-100 text-red-800',
+    MOYENNE: 'bg-yellow-100 text-yellow-800',
+    BASSE: 'bg-green-100 text-green-800',
+  };
+
+  const graviteKey = (isEditing ? editingIncident?.gravite : incident.gravite) as keyof typeof graviteStyles;
+  const prioriteKey = (isEditing ? editingIncident?.priorite : incident.priorite) as keyof typeof prioriteStyles;
+
+  const graviteClasses = graviteStyles[graviteKey];
+  const prioriteClasses = prioriteStyles[prioriteKey];
+
+  const formattedDate = new Date(incident.dateDeclaration).toLocaleString('fr-FR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col relative transition-all min-w-[300px] max-w-md w-full min-h-[380px] h-full">
+      <span className="absolute top-3 right-3 text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full select-none">
+        Auto
+      </span>
+
+      {incident.estValide && (
+        <div className="absolute top-12 right-3 flex items-center bg-green-100 text-green-800 px-2 py-1 text-xs rounded-full">
+          <CheckCircle size={14} className="mr-1" /> Non affecté
+        </div>
+      )}
+
+      <div className="flex-grow overflow-hidden">
+        {!isEditing && (
+          <>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">{incident.titre}</h2>
+            <p className="text-sm text-gray-600 mb-4 max-h-[80px] overflow-y-auto">{incident.description}</p>
+
+            <div className="flex gap-2 mb-2 text-xs">
+              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Env: {incident.environnement}</span>
+              <span className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full">App: {incident.application}</span>
+            </div>
+            <div className="mb-2 text-xs">
+              <span className="bg-teal-100 text-teal-800 px-2 py-1 rounded-full">Entité: {incident.entite}</span>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mb-2 text-xs">
+              {incident.tags?.map((tag, i) => (
+                <span key={i} className="bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                  {tag}
+                </span>
+              )) || <span>Aucun tag</span>}
+            </div>
+
+            <code className="text-xs block mb-2 text-gray-500">TraceID: {incident.traceId}</code>
+
+            <div className="flex gap-2 mb-3 text-xs font-medium">
+              <span className={`px-2 py-1 rounded ${graviteClasses}`}>{incident.gravite}</span>
+              <span className={`px-2 py-1 rounded ${prioriteClasses}`}>{incident.priorite}</span>
+            </div>
+
+            <p className="text-xs text-gray-500">Déclaré le {formattedDate}</p>
+          </>
+        )}
+
+        {isEditing && editingIncident && (
+          <form
+            className="space-y-4"
+            onSubmit={e => {
+              e.preventDefault();
+              onSaveEdit(editingIncident); // Passe l'objet modifié !
+            }}
+          >
+            <div>
+              <label className="text-sm font-medium">Titre</label>
+              <input
+                type="text"
+                value={editingIncident.titre}
+                onChange={e => onEditChange('titre', e.target.value)}
+                className="w-full mt-1 p-2 border border-gray-300 rounded text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <textarea
+                value={editingIncident.description}
+                onChange={e => onEditChange('description', e.target.value)}
+                className="w-full mt-1 p-2 border border-gray-300 rounded text-sm h-20"
+              />
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="text-sm font-medium">Gravité</label>
+                <select
+                  value={editingIncident.gravite}
+                  onChange={e => onEditChange('gravite', e.target.value)}
+                  className="w-full mt-1 p-2 border border-gray-300 rounded text-sm"
+                >
+                  <option value="MAJEUR">MAJEUR</option>
+                  <option value="MODERE">MODÉRÉ</option>
+                  <option value="MINEUR">MINEUR</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="text-sm font-medium">Priorité</label>
+                <select
+                  value={editingIncident.priorite}
+                  onChange={e => onEditChange('priorite', e.target.value)}
+                  className="w-full mt-1 p-2 border border-gray-300 rounded text-sm"
+                >
+                  <option value="HAUTE">HAUTE</option>
+                  <option value="MOYENNE">MOYENNE</option>
+                  <option value="BASSE">BASSE</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Tags</label>
+              <input
+                type="text"
+                value={editingIncident.tags}
+                onChange={e => onEditChange('tags', e.target.value)}
+                className="w-full mt-1 p-2 border border-gray-300 rounded text-sm"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="submit"
+                className="border border-blue-500 text-blue-600 bg-white px-3 py-1.5 rounded text-sm font-medium hover:bg-blue-50"
+              >
+                <Save size={14} className="inline mr-1" /> Sauvegarder
+              </button>
+              <button
+                type="button"
+                onClick={onCancelEdit}
+                className="border border-gray-400 text-gray-600 bg-white px-3 py-1.5 rounded text-sm font-medium hover:bg-gray-50"
+              >
+                <X size={14} className="inline mr-1" /> Annuler
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-2 mt-4">
+        {!isEditing && (
+          <>
+            {!incident.estValide && (
+              <button
+                type="button"
+                onClick={() => onValidate(incident.id)}
+                className="border border-green-500 text-green-600 bg-white px-3 py-1.5 rounded text-sm font-medium hover:bg-green-50"
+              >
+                <CheckCircle size={14} className="inline mr-1" /> Valider
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onArchive(incident.id)}
+              className="border border-red-500 text-red-600 bg-white px-3 py-1.5 rounded text-sm font-medium hover:bg-red-50"
+            >
+              <Archive size={14} className="inline mr-1" /> Archiver
+            </button>
+            <button
+              type="button"
+              onClick={() => onEdit(incident)}
+              className="border border-blue-500 text-blue-600 bg-white px-3 py-1.5 rounded text-sm font-medium hover:bg-blue-50"
+            >
+              <Edit size={14} className="inline mr-1" /> Modifier
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+'use client';
+
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import Sidebar from '../SideBarComponent/SideBar';
+import HeaderBar from '../components/HeaderBar';
+import AutoIncidentCard, { EditableIncident, Incident } from './AutoIncidentCard';
+import IncidentPagination from './IncidentPagination';
+import SearchBar from './SearchBar';
+import IncidentFilters from './IncidentFilters';
+import ToastMessage from './ToastMessage';
+import { SlidersHorizontal } from 'lucide-react';
+
+// Exemple de 12 incidents pour tester la pagination
+const INITIAL_INCIDENTS: Incident[] = [
+  {
+    id: 1,
+    titre: 'Erreur Serveur Inactif',
+    description: 'WARN: Serveur inactif détecté.',
+    gravite: 'MAJEUR',
+    priorite: 'HAUTE',
+    dateDeclaration: '2025-06-23T14:18:06.510Z',
+    environnement: 'Production',
+    application: 'AuthService',
+    traceId: 'abc123-trace',
+    entite: 'Utilisateur',
+    tags: ['warn', 'serveur'],
+  },
+  {
+    id: 2,
+    titre: 'Déconnexion Base Données',
+    description: 'ERROR: Base de données inaccessible.',
+    gravite: 'MODERE',
+    priorite: 'MOYENNE',
+    dateDeclaration: '2025-06-22T09:15:00.000Z',
+    environnement: 'Préproduction',
+    application: 'DBService',
+    traceId: 'def456-trace',
+    entite: 'Système',
+    tags: ['error', 'db'],
+  },
+  ...Array.from({ length: 10 }).map((_, i) => ({
+    id: i + 3,
+    titre: `Incident ${i + 3}`,
+    description: `Description factice pour l'incident ${i + 3}.`,
+    gravite: (i % 3 === 0 ? 'MAJEUR' : i % 3 === 1 ? 'MODERE' : 'MINEUR') as 'MAJEUR' | 'MODERE' | 'MINEUR',
+    priorite: (i % 3 === 0 ? 'HAUTE' : i % 3 === 1 ? 'MOYENNE' : 'BASSE') as 'HAUTE' | 'MOYENNE' | 'BASSE',
+    dateDeclaration: `2025-06-${10 + i}T10:00:00.000Z`,
+    environnement: i % 2 === 0 ? 'Production' : 'Préproduction',
+    application: i % 2 === 0 ? 'App1' : 'App2',
+    traceId: `trace-${i + 3}`,
+    entite: i % 2 === 0 ? 'Système' : 'Utilisateur',
+    tags: i % 2 === 0 ? ['auto', 'demo'] : ['urgent'],
+  })),
+];
+
+export default function AutomaticIncidentsPage() {
+  const [search, setSearch] = useState('');
+  const [filterPrio, setFilterPrio] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [filterEnv, setFilterEnv] = useState('');
+  const [filterApp, setFilterApp] = useState('');
+  const [page, setPage] = useState(1);
+  const [incidents, setIncidents] = useState(INITIAL_INCIDENTS);
+  const [editingIncident, setEditingIncident] = useState<EditableIncident | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'active' | 'inactive'>('active');
+  const [openFilters, setOpenFilters] = useState(false);
+  const [isModelActive, setIsModelActive] = useState(true);
+  const filtersRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => setToastMessage(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (filtersRef.current && !filtersRef.current.contains(event.target as Node)) {
+        setOpenFilters(false);
+      }
+    }
+    if (openFilters) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openFilters]);
+
+  const apps = useMemo(
+    () => Array.from(new Set(incidents.map(i => i.application))),
+    [incidents]
+  );
+  const environnements = useMemo(
+    () => Array.from(new Set(incidents.map(i => i.environnement))),
+    [incidents]
+  );
+
+  const filtered = useMemo(
+    () =>
+      incidents
+        .filter(
+          i =>
+            (i.titre.toLowerCase().includes(search.toLowerCase()) ||
+              i.description.toLowerCase().includes(search.toLowerCase())) &&
+            (filterPrio === '' || i.priorite === filterPrio) &&
+            (filterDate === '' || i.dateDeclaration.startsWith(filterDate)) &&
+            (filterEnv === '' || i.environnement === filterEnv) &&
+            (filterApp === '' || i.application === filterApp)
+        )
+        .sort((a, b) => b.dateDeclaration.localeCompare(a.dateDeclaration)),
+    [incidents, search, filterPrio, filterDate, filterEnv, filterApp]
+  );
+
+  const perPage = 6;
+  const totalPages = Math.ceil(filtered.length / perPage);
+  const pageData = filtered.slice((page - 1) * perPage, page * perPage);
+
+  // HANDLERS édition, validation, archivage
+  const handleEdit = (inc: Incident) =>
+    setEditingIncident({ ...inc, tags: inc.tags?.join(', ') ?? '' });
+
+  const handleSaveEdit = (updated: EditableIncident) => {
+    setIncidents(incs =>
+      incs.map(inc =>
+        inc.id === updated.id
+          ? {
+              ...inc,
+              titre: updated.titre,
+              description: updated.description,
+              gravite: updated.gravite,
+              priorite: updated.priorite,
+              tags: updated.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+            }
+          : inc
+      )
+    );
+    setEditingIncident(null);
+    setToastMessage("Incident modifié avec succès !");
+    setToastType('active');
+  };
+
+  const handleCancelEdit = () => setEditingIncident(null);
+
+  const handleEditChange = (field: keyof EditableIncident, value: string) => {
+    if (!editingIncident) return;
+    setEditingIncident(prev => prev ? { ...prev, [field]: value } : null);
+  };
+
+  const handleValidate = (id: number) => {
+    const inc = incidents.find(i => i.id === id);
+    if (!inc) return;
+    setIncidents(cs =>
+      cs.map(i => i.id === id ? { ...i, estValide: true } : i)
+    );
+    setToastMessage(`L'incident "${inc.titre}" est désormais dans les non affectés`);
+    setToastType('active');
+  };
+  const handleArchive = (id: number) =>
+    setIncidents(cs => cs.filter(i => i.id !== id));
+
+  // FONCTION DE RESET DES FILTRES
+  const handleResetFilters = () => {
+    setFilterPrio('');
+    setFilterDate('');
+    setFilterEnv('');
+    setFilterApp('');
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      <HeaderBar />
+      <div className="flex flex-1">
+        <aside className="hidden lg:block fixed top-0 left-0 h-full w-52 pt-16 z-20">
+          <Sidebar />
+        </aside>
+        <main className="flex-1 ml-0 lg:ml-52 pt-16 p-6 overflow-auto">
+          <div className="flex justify-center mb-6">
+            <h1 className="text-2xl font-bold">Incidents Automatiques</h1>
+          </div>
+
+          {/* HEADER et TOAST TOUTE LA LARGEUR, AVEC MARGE BASSE */}
+          <div className="w-full mb-6">
+            <div className="flex items-center gap-4 w-full">
+              <div className="flex-1">
+                <SearchBar value={search} onChange={setSearch} />
+              </div>
+              <div ref={filtersRef} className="relative">
+                <button
+                  onClick={() => setOpenFilters((o) => !o)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border shadow text-base font-medium bg-white hover:bg-gray-50 transition"
+                  type="button"
+                >
+                  <SlidersHorizontal size={18} className="mr-1" />
+                  Filtres
+                </button>
+                <IncidentFilters
+                  open={openFilters}
+                  filterPrio={filterPrio}
+                  setFilterPrio={setFilterPrio}
+                  filterDate={filterDate}
+                  setFilterDate={setFilterDate}
+                  filterEnv={filterEnv}
+                  setFilterEnv={setFilterEnv}
+                  filterApp={filterApp}
+                  setFilterApp={setFilterApp}
+                  apps={apps}
+                  environnements={environnements}
+                  onReset={handleResetFilters}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  setIsModelActive((active) => {
+                    const newState = !active;
+                    setToastMessage(
+                      newState
+                        ? "Le modèle est maintenant activé. Les incidents automatiques seront à nouveau reçus."
+                        : "Le modèle est désactivé. La réception de nouveaux incidents automatiques est suspendue, les anciens restent visibles."
+                    );
+                    setToastType(newState ? 'active' : 'inactive');
+                    return newState;
+                  });
+                }}
+                className={`px-4 py-2 rounded-xl font-medium text-base border shadow transition
+                  ${isModelActive
+                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    : 'bg-green-500 text-white hover:bg-green-600'
+                  }`}
+                type="button"
+              >
+                {isModelActive ? "Désactiver le modèle" : "Activer le modèle"}
+              </button>
+            </div>
+
+            {/* Affichage des tags filtres actifs */}
+            {(filterPrio || filterDate || filterEnv || filterApp) && (
+              <div className="flex flex-wrap gap-2 mb-4 mt-2">
+                {filterPrio && (
+                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs">
+                    Priorité: {filterPrio}
+                  </span>
+                )}
+                {filterDate && (
+                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">
+                    Date: {filterDate}
+                  </span>
+                )}
+                {filterEnv && (
+                  <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs">
+                    Env: {filterEnv}
+                  </span>
+                )}
+                {filterApp && (
+                  <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs">
+                    App: {filterApp}
+                  </span>
+                )}
+              </div>
+            )}
+            {toastMessage && (
+              <div className="w-full mt-2">
+                <ToastMessage message={toastMessage} type={toastType} />
+              </div>
+            )}
+          </div>
+
+          {/* CARDS 6 PAR PAGE, 3 PAR LIGNE, TAILLE FIXE */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+            {pageData.map(i => (
+              <AutoIncidentCard
+                key={i.id}
+                incident={i}
+                isEditing={editingIncident?.id === i.id}
+                editingIncident={editingIncident?.id === i.id ? editingIncident : null}
+                onEdit={handleEdit}
+                onSaveEdit={handleSaveEdit}
+                onCancelEdit={handleCancelEdit}
+                onEditChange={handleEditChange}
+                onValidate={handleValidate}
+                onArchive={handleArchive}
+              />
+            ))}
+          </div>
+
+          {/* PAGINATION alignée */}
+          <IncidentPagination
+            currentPage={page}
+            pageCount={totalPages}
+            onPageChange={setPage}
+          />
+        </main>
+      </div>
+    </div>
+  );
+}
+'use client';
+
+import React from 'react';
+
+type Props = {
+  currentPage: number;
+  pageCount: number;
+  onPageChange: (n: number) => void;
+};
+
+export default function IncidentPagination({ currentPage, pageCount, onPageChange }: Props) {
+  // Toujours afficher au moins Page 1 / 1
+  const total = pageCount && pageCount > 0 ? pageCount : 1;
+  const current = currentPage && currentPage > 0 ? currentPage : 1;
+
+  return (
+    <div className="flex justify-between items-center w-full mt-8">
+      <button
+        className="border px-4 py-1 rounded disabled:opacity-40"
+        disabled={current <= 1}
+        onClick={() => onPageChange(current - 1)}
+      >
+        Précédent
+      </button>
+      <span className="text-base font-semibold tracking-wide bg-gray-100 px-4 py-1 rounded shadow border border-gray-200">
+        Page&nbsp;
+        <span className="text-blue-600 font-bold">{current}</span>
+        &nbsp;/&nbsp;
+        <span>{total}</span>
+      </span>
+      <button
+        className="border px-4 py-1 rounded disabled:opacity-40"
+        disabled={current >= total}
+        onClick={() => onPageChange(current + 1)}
+      >
+        Suivant
+      </button>
+    </div>
+  );
+}
+
