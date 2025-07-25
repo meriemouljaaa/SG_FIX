@@ -1,169 +1,76 @@
-'use client';
+public void createIncident(IncidentDTO incidentDto) {
+    // Sauvegarde en base
+    incidentRepository.save(mapToEntity(incidentDto));
 
-import React, { useState, useEffect } from 'react';
-
-type Props = {
-  open: boolean;
-  filterPrio: string;
-  setFilterPrio: (s: string) => void;
-  filterDate: string;
-  setFilterDate: (s: string) => void;
-  filterEnv: string;
-  setFilterEnv: (s: string) => void;
-  filterApp: string;
-  setFilterApp: (s: string) => void;
-  apps: string[];
-  environnements: string[];
-  onReset: () => void;
-};
-
-export default function IncidentFilters({
-  open,
-  filterPrio, setFilterPrio,
-  filterDate, setFilterDate,
-  filterEnv, setFilterEnv,
-  filterApp, setFilterApp,
-  apps, environnements,
-  onReset,
-}: Props) {
-  const [localPrio, setLocalPrio] = useState(filterPrio);
-  const [localDate, setLocalDate] = useState(filterDate);
-  const [localEnv, setLocalEnv] = useState(filterEnv);
-  const [localApp, setLocalApp] = useState(filterApp);
-
-  useEffect(() => {
-    if (open) {
-      setLocalPrio(filterPrio);
-      setLocalDate(filterDate);
-      setLocalEnv(filterEnv);
-      setLocalApp(filterApp);
+    // Ensuite, broadcast aux abonnés SSE
+    for (SseEmitter emitter : emitters) {
+        try {
+            emitter.send(SseEmitter.event()
+                .name("incident")
+                .data(incidentDto, MediaType.APPLICATION_JSON));
+        } catch (IOException e) {
+            emitter.complete();
+            emitters.remove(emitter);
+        }
     }
-  }, [open, filterPrio, filterDate, filterEnv, filterApp]);
-
-  const handleApply = () => {
-    setFilterPrio(localPrio);
-    setFilterDate(localDate);
-    setFilterEnv(localEnv);
-    setFilterApp(localApp);
-  };
-
-  const handleReset = () => {
-    setLocalPrio('');
-    setLocalDate('');
-    setLocalEnv('');
-    setLocalApp('');
-    onReset();
-  };
-
-  if (!open) return null;
-
-  return (
-    <div className="absolute right-0 z-40 mt-3 w-96 bg-white border shadow-lg rounded-xl p-4">
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Priorité</label>
-          <select
-            value={localPrio}
-            onChange={e => setLocalPrio(e.target.value)}
-            className="min-w-[130px] w-full border rounded p-2 text-sm"
-          >
-            <option value="">Toutes</option>
-            <option value="HAUTE">Haute</option>
-            <option value="MOYENNE">Moyenne</option>
-            <option value="BASSE">Basse</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Date</label>
-          <input
-            type="date"
-            value={localDate}
-            onChange={e => setLocalDate(e.target.value)}
-            className="min-w-[130px] w-full border rounded p-2 text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Environnement</label>
-          <select
-            value={localEnv}
-            onChange={e => setLocalEnv(e.target.value)}
-            className="min-w-[130px] w-full border rounded p-2 text-sm"
-          >
-            <option value="">Tous</option>
-            {environnements.map(env =>
-              <option key={env} value={env}>{env}</option>
-            )}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Application</label>
-          <select
-            value={localApp}
-            onChange={e => setLocalApp(e.target.value)}
-            className="min-w-[130px] w-full border rounded p-2 text-sm"
-          >
-            <option value="">Toutes</option>
-            {apps.map(app =>
-              <option key={app} value={app}>{app}</option>
-            )}
-          </select>
-        </div>
-      </div>
-      <div className="flex gap-2 mt-2">
-        <button
-          type="button"
-          onClick={handleReset}
-          className="flex-1 py-2 px-4 bg-gray-100 hover:bg-gray-200 rounded font-medium text-sm"
-        >
-          Réinitialiser
-        </button>
-        <button
-          type="button"
-          onClick={handleApply}
-          className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium text-sm"
-        >
-          Appliquer
-        </button>
-      </div>
-    </div>
-  );
 }
-
-'use client';
-import React from 'react';
-
-export default function ToastMessage({ message, type }: { message: string, type: 'active' | 'inactive' }) {
-  const base = "w-full px-4 py-2 text-center rounded-xl shadow text-base font-normal transition-opacity duration-500";
-  const active = "bg-green-100 text-green-800 border border-green-200";
-  const inactive = "bg-yellow-100 text-yellow-800 border border-yellow-200";
-  return (
-    <div className={`${base} ${type === 'active' ? active : inactive}`}>
-      {message}
-    </div>
-  );
+@PostMapping("/dispatchEvent")
+public void dispatchEvent(@RequestBody IncidentDTO incident) {
+    for (SseEmitter emitter : emitters) {
+        try {
+            emitter.send(SseEmitter.event()
+                .name("incident")
+                .data(incident, MediaType.APPLICATION_JSON));
+        } catch (IOException e) {
+            emitter.complete();
+            emitters.remove(emitter);
+        }
+    }
 }
-'use client';
-import React from 'react';
-import { Search } from 'lucide-react';
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-export default function SearchBar({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="relative w-full">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-      <input
-        type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-full pl-9 pr-3 py-2 border rounded-xl text-base shadow focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition placeholder:italic"
-        placeholder="Rechercher un incident..."
-      />
-    </div>
-  );
+import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+@RestController
+@RequestMapping("/api/sse")
+public class SseController {
+
+    // Stocke les clients connectés
+    private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+
+    @GetMapping("/subscribe")
+    public SseEmitter subscribe() {
+        SseEmitter emitter = new SseEmitter(0L); // Pas de timeout
+        emitters.add(emitter);
+
+        emitter.onCompletion(() -> emitters.remove(emitter));
+        emitter.onTimeout(() -> emitters.remove(emitter));
+        emitter.onError(e -> emitters.remove(emitter));
+
+        // Optionnel : envoyer un message de bienvenue/test
+        try {
+            emitter.send(SseEmitter.event().name("connected").data("Connecté au flux SSE"));
+        } catch (IOException e) {
+            emitter.completeWithError(e);
+        }
+
+        return emitter;
+    }
+
+    // Méthode à appeler depuis ton service de création d'incident
+    public void sendIncidentToClients(Object incidentData) {
+        for (SseEmitter emitter : emitters) {
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("incident")
+                        .data(incidentData));
+            } catch (IOException e) {
+                emitter.complete();
+                emitters.remove(emitter);
+            }
+        }
+    }
 }
-
