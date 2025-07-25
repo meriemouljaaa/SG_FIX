@@ -1,76 +1,46 @@
-public void createIncident(IncidentDTO incidentDto) {
-    // Sauvegarde en base
-    incidentRepository.save(mapToEntity(incidentDto));
+"use client";
 
-    // Ensuite, broadcast aux abonnés SSE
-    for (SseEmitter emitter : emitters) {
-        try {
-            emitter.send(SseEmitter.event()
-                .name("incident")
-                .data(incidentDto, MediaType.APPLICATION_JSON));
-        } catch (IOException e) {
-            emitter.complete();
-            emitters.remove(emitter);
-        }
-    }
-}
-@PostMapping("/dispatchEvent")
-public void dispatchEvent(@RequestBody IncidentDTO incident) {
-    for (SseEmitter emitter : emitters) {
-        try {
-            emitter.send(SseEmitter.event()
-                .name("incident")
-                .data(incident, MediaType.APPLICATION_JSON));
-        } catch (IOException e) {
-            emitter.complete();
-            emitters.remove(emitter);
-        }
-    }
-}
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import React, { useEffect, useState } from "react";
 
-import java.io.IOException;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+const NewsFeed = () => {
+  const [news, setNews] = useState([]);
 
-@RestController
-@RequestMapping("/api/sse")
-public class SseController {
+  useEffect(() => {
+    const eventSource = new EventSource("http://localhost:8080/subscribe");
 
-    // Stocke les clients connectés
-    private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+    eventSource.onopen = () => {
+      console.log("Connexion SSE établie");
+    };
 
-    @GetMapping("/subscribe")
-    public SseEmitter subscribe() {
-        SseEmitter emitter = new SseEmitter(0L); // Pas de timeout
-        emitters.add(emitter);
+    eventSource.addEventListener("INIT", () => {
+      console.log("Connexion initialisée par le serveur");
+    });
 
-        emitter.onCompletion(() -> emitters.remove(emitter));
-        emitter.onTimeout(() -> emitters.remove(emitter));
-        emitter.onError(e -> emitters.remove(emitter));
+    eventSource.addEventListener("latestNews", (event) => {
+      console.log("Nouvelle donnée reçue :", event.data);
+      setNews((prev) => [...prev, event.data]);
+    });
 
-        // Optionnel : envoyer un message de bienvenue/test
-        try {
-            emitter.send(SseEmitter.event().name("connected").data("Connecté au flux SSE"));
-        } catch (IOException e) {
-            emitter.completeWithError(e);
-        }
+    eventSource.onerror = (err) => {
+      console.error("Erreur SSE", err);
+      eventSource.close();
+    };
 
-        return emitter;
-    }
+    return () => {
+      eventSource.close();
+    };
+  }, []);
 
-    // Méthode à appeler depuis ton service de création d'incident
-    public void sendIncidentToClients(Object incidentData) {
-        for (SseEmitter emitter : emitters) {
-            try {
-                emitter.send(SseEmitter.event()
-                        .name("incident")
-                        .data(incidentData));
-            } catch (IOException e) {
-                emitter.complete();
-                emitters.remove(emitter);
-            }
-        }
-    }
-}
+  return (
+    <div style={{ padding: 20 }}>
+      <h2>📰 Actualités en direct</h2>
+      <ul>
+        {news.map((item, index) => (
+          <li key={index}>📢 {item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default NewsFeed;
