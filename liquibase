@@ -1,24 +1,84 @@
-import requests
-import cv2
-import numpy as np
-from PIL import Image
-from io import BytesIO
+package com.example.demo.Controller;
 
-# URL de l'image
-image_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Example.jpg/800px-Example.jpg"
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-# Télécharger l'image
-response = requests.get(image_url)
-image_data = np.asarray(bytearray(response.content), dtype=np.uint8)
-image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
-# Afficher l'image avec OpenCV
-cv2.imshow("Image téléchargée", image)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+@RestController
+public class NewsController{
 
-# Extraire les métadonnées avec PIL
-pil_image = Image.open(BytesIO(response.content))
-print("Format de l'image :", pil_image.format)
-print("Taille de l'image :", pil_image.size)
-print("Mode de l'image :", pil_image.mode)
+    public List<SseEmitter> emitters=new CopyOnWriteArrayList<>();
+    @CrossOrigin
+    @RequestMapping(value="/subscribe",consumes = MediaType.ALL_VALUE)
+    public SseEmitter subscribe() throws IOException {
+        SseEmitter sseEmitter=new SseEmitter(Long.MAX_VALUE);
+        sseEmitter.send(SseEmitter.event().name("INIT"));
+      emitters.add(sseEmitter);
+        return sseEmitter;
+
+    }
+    @PostMapping(value="/dispatchEvent")
+    public void dispatchEventToClient(@RequestParam String freshNews)  {
+      for(SseEmitter emitter:emitters){
+          try {
+              emitter.send(SseEmitter.event().name("latestNews").data(freshNews));
+          } catch (IOException e) {
+              emitters.remove(emitter);
+          }
+      }
+    }
+
+
+}
+
+
+"use client";
+
+import React, { useEffect, useState } from "react";
+
+const NewsFeed = () => {
+  const [news, setNews] = useState([]);
+
+  useEffect(() => {
+    const eventSource = new EventSource("http://localhost:8080/subscribe");
+
+    eventSource.onopen = () => {
+      console.log("Connexion SSE établie");
+    };
+
+    eventSource.addEventListener("INIT", () => {
+      console.log("Connexion initialisée par le serveur");
+    });
+
+    eventSource.addEventListener("latestNews", (event) => {
+      console.log("Nouvelle donnée reçue :", event.data);
+      setNews((prev) => [...prev, event.data]);
+    });
+
+    eventSource.onerror = (err) => {
+      console.error("Erreur SSE", err);
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, []);
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h2>📰 Actualités en direct</h2>
+      <ul>
+        {news.map((item, index) => (
+          <li key={index}>📢 {item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default NewsFeed;
