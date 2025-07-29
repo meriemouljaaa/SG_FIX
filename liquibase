@@ -1,4 +1,17 @@
-logging.level.org.springframework.web=DEBUG
-logging.level.org.springframework.web.servlet.mvc.method.annotation.SseEmitter=DEBUG
-"proxy": "http://localhost:8080"
-const eventSource = new EventSource("/subscribe");
+@GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+public SseEmitter subscribe() {
+    try {
+        SseEmitter emitter = new SseEmitter(0L);
+        emitters.add(emitter);
+        emitter.send(SseEmitter.event().name("INIT"));
+        emitter.onCompletion(() -> emitters.remove(emitter));
+        emitter.onTimeout(() -> {
+            emitter.complete();
+            emitters.remove(emitter);
+        });
+        return emitter;
+    } catch (Exception e) {
+        e.printStackTrace();  // log l'erreur pour debug
+        throw e;              // ou retourner une réponse custom si besoin
+    }
+}
