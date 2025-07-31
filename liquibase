@@ -1,49 +1,42 @@
-import React, { useEffect, useState } from "react";
+package com.example.demo.controller;
 
-const SseTest = () => {
-  const [events, setEvents] = useState([]);
-  const [status, setStatus] = useState("⏳ Connexion en cours...");
+import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 
-  useEffect(() => {
-    const eventSource = new EventSource("http://localhost:8080/subscribe");
+import java.time.Duration;
+import java.util.UUID;
 
-    eventSource.onopen = () => {
-      console.log("✅ Connexion ouverte");
-      setStatus("✅ Connecté au serveur SSE");
-    };
+@RestController
+@CrossOrigin(origins = "*") // à ajuster selon ton front
+public class NewsController {
 
-    eventSource.addEventListener("INIT", (event) => {
-      console.log("INIT reçu :", event);
-    });
+    private final Sinks.Many<String> sink;
 
-    eventSource.addEventListener("latestNews", (event) => {
-      console.log("🟢 Événement reçu :", event.data);
-      setEvents((prev) => [...prev, event.data]);
-    });
+    public NewsController() {
+        this.sink = Sinks.many().multicast().onBackpressureBuffer();
+    }
 
-    eventSource.onerror = (err) => {
-      console.error("❌ Erreur SSE :", err);
-      setStatus("❌ Erreur de connexion SSE");
-      eventSource.close();
-    };
+    // Flux de Server-Sent Events
+    @GetMapping("/subscribe")
+    public Flux<ServerSentEvent<String>> subscribe() {
+        return sink.asFlux()
+                .map(data -> ServerSentEvent.<String>builder()
+                        .id(UUID.randomUUID().toString())
+                        .event("latestNews")
+                        .data(data)
+                        .build())
+                .doOnSubscribe(subscription -> {
+                    // On peut envoyer un event INIT ici si besoin
+                    sink.tryEmitNext("INIT");
+                });
+    }
 
-    // Nettoyage quand le composant est démonté
-    return () => {
-      eventSource.close();
-    };
-  }, []);
+    // Pour envoyer un événement
+    @PostMapping("/dispatchEvent")
+    public void dispatchEventToClient(@RequestParam String freshNews) {
+        sink.tryEmitNext(freshNews); // push vers tous les clients connectés
+    }
+}
 
-  return (
-    <div style={{ padding: "20px", fontFamily: "Arial" }}>
-      <h2>📰 Événements SSE reçus</h2>
-      <p>{status}</p>
-      <ul>
-        {events.map((msg, index) => (
-          <li key={index}>📢 {msg}</li>
-        ))}
-      </ul>
-    </div>
-  );
-};
-
-export default SseTest;
