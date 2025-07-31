@@ -1,17 +1,49 @@
-@GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-public SseEmitter subscribe() {
-    try {
-        SseEmitter emitter = new SseEmitter(0L);
-        emitters.add(emitter);
-        emitter.send(SseEmitter.event().name("INIT"));
-        emitter.onCompletion(() -> emitters.remove(emitter));
-        emitter.onTimeout(() -> {
-            emitter.complete();
-            emitters.remove(emitter);
-        });
-        return emitter;
-    } catch (Exception e) {
-        e.printStackTrace();  // log l'erreur pour debug
-        throw e;              // ou retourner une réponse custom si besoin
-    }
-}
+import React, { useEffect, useState } from "react";
+
+const SseTest = () => {
+  const [events, setEvents] = useState([]);
+  const [status, setStatus] = useState("⏳ Connexion en cours...");
+
+  useEffect(() => {
+    const eventSource = new EventSource("http://localhost:8080/subscribe");
+
+    eventSource.onopen = () => {
+      console.log("✅ Connexion ouverte");
+      setStatus("✅ Connecté au serveur SSE");
+    };
+
+    eventSource.addEventListener("INIT", (event) => {
+      console.log("INIT reçu :", event);
+    });
+
+    eventSource.addEventListener("latestNews", (event) => {
+      console.log("🟢 Événement reçu :", event.data);
+      setEvents((prev) => [...prev, event.data]);
+    });
+
+    eventSource.onerror = (err) => {
+      console.error("❌ Erreur SSE :", err);
+      setStatus("❌ Erreur de connexion SSE");
+      eventSource.close();
+    };
+
+    // Nettoyage quand le composant est démonté
+    return () => {
+      eventSource.close();
+    };
+  }, []);
+
+  return (
+    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+      <h2>📰 Événements SSE reçus</h2>
+      <p>{status}</p>
+      <ul>
+        {events.map((msg, index) => (
+          <li key={index}>📢 {msg}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default SseTest;
