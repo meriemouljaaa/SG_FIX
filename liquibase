@@ -1,42 +1,10 @@
-package com.example.demo.controller;
-
-import org.springframework.http.codec.ServerSentEvent;
-import org.springframework.web.bind.annotation.*;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Sinks;
-
-import java.time.Duration;
-import java.util.UUID;
-
-@RestController
-@CrossOrigin(origins = "*") // à ajuster selon ton front
-public class NewsController {
-
-    private final Sinks.Many<String> sink;
-
-    public NewsController() {
-        this.sink = Sinks.many().multicast().onBackpressureBuffer();
+    @PostMapping(value="/dispatchEvent")
+    public void dispatchEventToClient(@RequestParam String freshNews)  {
+      for(SseEmitter emitter:emitters){
+          try {
+              emitter.send(SseEmitter.event().name("latestNews").data(freshNews));
+          } catch (IOException e) {
+              emitters.remove(emitter);
+          }
+      }
     }
-
-    // Flux de Server-Sent Events
-    @GetMapping("/subscribe")
-    public Flux<ServerSentEvent<String>> subscribe() {
-        return sink.asFlux()
-                .map(data -> ServerSentEvent.<String>builder()
-                        .id(UUID.randomUUID().toString())
-                        .event("latestNews")
-                        .data(data)
-                        .build())
-                .doOnSubscribe(subscription -> {
-                    // On peut envoyer un event INIT ici si besoin
-                    sink.tryEmitNext("INIT");
-                });
-    }
-
-    // Pour envoyer un événement
-    @PostMapping("/dispatchEvent")
-    public void dispatchEventToClient(@RequestParam String freshNews) {
-        sink.tryEmitNext(freshNews); // push vers tous les clients connectés
-    }
-}
-
