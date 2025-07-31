@@ -1,10 +1,49 @@
-    @PostMapping(value="/dispatchEvent")
-    public void dispatchEventToClient(@RequestParam String freshNews)  {
-      for(SseEmitter emitter:emitters){
-          try {
-              emitter.send(SseEmitter.event().name("latestNews").data(freshNews));
-          } catch (IOException e) {
-              emitters.remove(emitter);
-          }
-      }
-    }
+import React, { useEffect, useState } from "react";
+
+const NewsStream = () => {
+  const [messages, setMessages] = useState([]);
+
+  useEffect(() => {
+    const eventSource = new EventSource("http://localhost:8080/subscribe");
+
+    eventSource.onopen = () => {
+      console.log("Connection opened");
+    };
+
+    eventSource.onmessage = (event) => {
+      console.log("Default message event received:", event.data);
+      setMessages((prev) => [...prev, event.data]);
+    };
+
+    eventSource.addEventListener("INIT", (event) => {
+      console.log("INIT event received:", event.data);
+    });
+
+    eventSource.addEventListener("latestNews", (event) => {
+      console.log("latestNews event received:", event.data);
+      setMessages((prev) => [...prev, event.data]);
+    });
+
+    eventSource.onerror = (error) => {
+      console.error("EventSource failed:", error);
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, []);
+
+  return (
+    <div>
+      <h2>News Feed</h2>
+      <ul>
+        {messages.map((msg, index) => (
+          <li key={index}>{msg}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default NewsStream;
