@@ -21,49 +21,33 @@ const NotificationPanel = () => {
   const [activeTab, setActiveTab] = useState("All");
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  useEffect(() => {
-    const eventSource = new EventSource("http://localhost:8080/subscribe");
+ useEffect(() => {
+  const eventSource = new EventSource("http://localhost:8080/subscribe");
 
-    eventSource.onmessage = (event) => {
-      // Ne traite que les événements personnalisés
-      const data = JSON.parse(event.data);
-      const newNotification: Notification = {
-        id: Date.now(),
-        name: data.name || "Système",
-        action: data.action || "a envoyé une notification",
-        campaign: data.campaign || "",
-        time: new Date().toLocaleTimeString(),
-        link: data.link || "",
-        avatar: data.avatar || "https://randomuser.me/api/portraits/lego/2.jpg",
-      };
-      setNotifications((prev) => [newNotification, ...prev]);
+  eventSource.addEventListener("message", (event) => {
+    const textData = event.data;
+
+    const newNotification: Notification = {
+      id: Date.now(),
+      name: "Système",
+      action: textData, // le message brut envoyé
+      campaign: "",
+      time: new Date().toLocaleTimeString(),
+      link: "",
+      avatar: "https://randomuser.me/api/portraits/lego/2.jpg",
     };
 
-    eventSource.addEventListener("latestNews", (event) => {
-      try {
-        const data = JSON.parse((event as MessageEvent).data);
-        const newNotification: Notification = {
-          id: Date.now(),
-          name: data.name || "Système",
-          action: data.action || "a envoyé une notification",
-          campaign: data.campaign || "",
-          time: new Date().toLocaleTimeString(),
-          link: data.link || "",
-          avatar: data.avatar || "https://randomuser.me/api/portraits/lego/2.jpg",
-        };
-        setNotifications((prev) => [newNotification, ...prev]);
-      } catch (e) {
-        console.error("Erreur parsing SSE:", e);
-      }
-    });
+    setNotifications((prev) => [newNotification, ...prev]);
+  });
 
-    eventSource.onerror = (err) => {
-      console.error("SSE error:", err);
-      eventSource.close();
-    };
+  eventSource.onerror = (err) => {
+    console.error("SSE error:", err);
+    eventSource.close();
+  };
 
-    return () => eventSource.close();
-  }, []);
+  return () => eventSource.close();
+}, []);
+
 
   return (
     <div className="bg-white rounded-xl shadow-md w-[350px] p-4">
@@ -124,135 +108,3 @@ const NotificationPanel = () => {
 };
 
 export default NotificationPanel;
-
-"use client";
-
-import { useState, useRef, useEffect } from "react";
-import { Bell, LogOut } from "lucide-react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import NotificationPanel from "../notification-user/notifPanel";
-
-const HeaderBar = () => {
-    const router = useRouter();
-    const hasNotification = true;
-    const [openProfile, setOpenProfile] = useState(false);
-    const [openNotifications, setOpenNotifications] = useState(false);
-    const profileRef = useRef<HTMLDivElement>(null);
-    const notificationRef = useRef<HTMLDivElement>(null);
-
-    const user = {
-        name: "Omar Bari",
-        email: "omar.bari@email.com",
-        role: "Admin"
-    };
-
-    const getInitials = (name: string): string =>
-        name
-            .split(" ")
-            .map((word: string) => word[0])
-            .join("")
-            .slice(0, 2)
-            .toUpperCase();
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (
-                profileRef.current &&
-                !profileRef.current.contains(event.target as Node)
-            ) {
-                setOpenProfile(false);
-            }
-            if (
-                notificationRef.current &&
-                !notificationRef.current.contains(event.target as Node)
-            ) {
-                setOpenNotifications(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    return (
-        <header className="bg-white shadow-md px-6 py-3 flex items-center justify-between text-black relative">
-            <div className="flex-1" />
-            <div className="flex justify-center flex-1 mr-9" style={{ marginLeft: '28px' }}>
-                <Image
-                    src="/images/logoImage.png"
-                    alt="Logo SG-FIX"
-                    width={220}
-                    height={70}
-                    priority
-                />
-            </div>
-
-            <div className="flex justify-end flex-1 items-center gap-5 relative">
-                {/* Bell icon with panel */}
-                <div className="relative cursor-pointer" ref={notificationRef}>
-                    <Bell
-                        className="h-8 w-8 text-black"
-                        onClick={() => setOpenNotifications(!openNotifications)}
-                    />
-                    {hasNotification && (
-                        <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 border-2 border-white" />
-                    )}
-                  {openNotifications && (
-                        <div className="fixed top-16 right-0 z-50 w-[400px] max-w-full h-auto shadow-xl rounded-l-xl bg-white border border-gray-200">
-                            <NotificationPanel />
-                        </div>
-                    )}
-
-
-                </div>
-
-                {/* Profile dropdown */}
-                <div className="relative" ref={profileRef}>
-                    <div className="flex flex-col items-center cursor-pointer">
-                        <div
-                            className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-base font-semibold cursor-pointer hover:bg-gray-400 transition"
-                            onClick={() => setOpenProfile((v) => !v)}
-                        >
-                            {getInitials(user.name)}
-                        </div>
-                        <span className="text-sm font-medium text-gray-700 mt-1">{user.name}</span>
-                    </div>
-
-                    {openProfile && (
-                        <div className="absolute right-0 mt-4 w-56 bg-white rounded-xl shadow-xl border border-gray-100 z-50 animate-fade-in-down py-3 px-4">
-                            <div className="flex flex-col items-center pb-3 border-b border-gray-200">
-                                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white text-xl font-bold mb-1">
-                                    {getInitials(user.name)}
-                                </div>
-                                <div className="font-semibold text-lg">{user.name}</div>
-                                <div className="text-sm text-gray-500">{user.email}</div>
-                                <div className="text-xs text-gray-400">{user.role}</div>
-                            </div>
-                            <button
-                                className="flex items-center gap-2 mt-3 px-2 py-2 w-full text-left text-red-500 hover:bg-gray-100 rounded transition"
-                                onClick={() => {
-                                    setOpenProfile(false);
-                                    router.push("/");
-                                }}
-                            >
-                                <LogOut className="w-5 h-5" /> Se déconnecter
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            <style jsx>{`
-                .animate-fade-in-down {
-                    animation: fadeInDown 0.17s cubic-bezier(.39,.575,.565,1) both;
-                }
-                @keyframes fadeInDown {
-                    from { opacity: 0; transform: translateY(-10px) scale(0.98); }
-                    to { opacity: 1; transform: translateY(0) scale(1); }
-                }
-            `}</style>
-        </header>
-    );
-};
-
-export default HeaderBar;
