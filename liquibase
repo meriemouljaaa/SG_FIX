@@ -1,110 +1,215 @@
-"use client";
-import React, { useEffect, useState } from "react";
+ return (
+    <div className="flex bg-gray-50 min-h-screen text-[17px]">
+      <Sidebar />
+      <div className="flex-1 flex flex-col">
+        <HeaderBar />
+        <main className="p-6 max-w-[100%] mx-auto w-full relative">
+          <h1 className="text-4xl font-bold text-center text-gray-800 mb-4">
+            Historique des incidents
+          </h1>
+          <div className="flex space-x-4 mb-4 relative ml-52 max-w-[80%]">
+            <div className="relative flex items-center w-full">
+              <Search className="absolute left-3 text-gray-500" size={20} />
+              <input
+                type="text"
+                placeholder="Rechercher un incident..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div className="ml-auto flex items-center space-x-4 relative">
+              <button
+                className="flex items-center gap-2 px-3 py-3 ml-4 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-100 text-gray-700 text-lg font-medium"
+                onClick={() => setSortPriority(sortPriority ? "" : "asc")}
+              >
+                <ArrowUpDown size={16} />
+                Trier
+              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowFilter(!showFilter)}
+                  className="flex items-center gap-2 px-3 py-3 bg-white border border-black-600 rounded-md shadow-sm hover:bg-gray-100 text-black-600 text-lg font-medium"
+                >
+                  <SlidersHorizontal size={16} />
+                  Filtres
+                </button>
 
-const tabs = [
-  { label: "All", count: 0 },
-  { label: "Searcheye Ai", count: 0 },
-  { label: "System", count: 0 },
-];
+                {showFilter && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white p-4 border border-gray-300 rounded-md shadow-lg z-20">
+                    <label className="block mb-2 text-sm font-medium text-gray-700">
+                      Statut
+                    </label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="w-full p-2 mb-4 border border-gray-300 rounded-md"
+                    >
+                      <option value="">Tous</option>
+                      {Object.values(IncidentStatus).map((status) => (
+                        <option key={status} value={status}>
+                          {statusLabels[status] || status}
+                        </option>
+                      ))}
+                    </select>
 
-interface Notification {
-  id: number;
-  name: string;
-  action: string;
-  campaign?: string;
-  time: string;
-  link?: string;
-  avatar: string;
-}
+                    <label className="block mb-2 text-sm font-medium text-gray-700">
+                      Priorité
+                    </label>
+                    <select
+                      value={filterPriority}
+                      onChange={(e) => setFilterPriority(e.target.value as IncidentPriority)}
+                      className="w-full p-2 mb-4 border border-gray-300 rounded-md"
+                    >
+                      <option value="">Toutes</option>
+                      <option value={IncidentPriority.ELEVEE}>Élevée</option>
+                      <option value={IncidentPriority.MOYENNE}>Moyenne</option>
+                      <option value={IncidentPriority.FAIBLE}>Faible</option>
+                    </select>
 
-const NotificationPanel = () => {
-  const [activeTab, setActiveTab] = useState("All");
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-
- useEffect(() => {
-  const eventSource = new EventSource("http://localhost:8080/subscribe");
-
-  eventSource.addEventListener("message", (event) => {
-    const textData = event.data;
-
-    const newNotification: Notification = {
-      id: Date.now(),
-      name: "Système",
-      action: textData, // le message brut envoyé
-      campaign: "",
-      time: new Date().toLocaleTimeString(),
-      link: "",
-      avatar: "https://randomuser.me/api/portraits/lego/2.jpg",
-    };
-
-    setNotifications((prev) => [newNotification, ...prev]);
-  });
-
-  eventSource.onerror = (err) => {
-    console.error("SSE error:", err);
-    eventSource.close();
-  };
-
-  return () => eventSource.close();
-}, []);
-
-
-  return (
-    <div className="bg-white rounded-xl shadow-md w-[350px] p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold">Notifications</h2>
-        <button className="text-gray-400 hover:text-gray-600">⟳</button>
-      </div>
-
-      <div className="flex space-x-2 text-sm mb-4">
-        {tabs.map((tab) => (
-          <button
-            key={tab.label}
-            className={`px-2 py-1 rounded-full border ${
-              activeTab === tab.label
-                ? "bg-gray-200 border-gray-400"
-                : "text-gray-600 border-gray-200"
-            }`}
-            onClick={() => setActiveTab(tab.label)}
-          >
-            {tab.label} <span className="ml-1 text-xs text-gray-500">{notifications.length}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-3 max-h-[400px] overflow-y-auto">
-        {notifications.map((n) => (
-          <div
-            key={n.id}
-            className="flex items-start space-x-3 p-2 bg-gray-50 hover:bg-gray-100 rounded-md"
-          >
-            <img
-              src={n.avatar}
-              alt={n.name}
-              className="w-10 h-10 rounded-full object-cover"
-            />
-            <div>
-              <p className="text-sm">
-                <strong>{n.name}</strong> {n.action}{" "}
-                {n.campaign && <strong>{n.campaign}</strong>}
-              </p>
-              {n.link && (
-                <a href="#" className="text-xs text-blue-500">
-                  {n.link}
-                </a>
-              )}
-              <p className="text-xs text-gray-400">{n.time}</p>
+                    <button
+                      onClick={applyFilters}
+                      className="w-full px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+                    >
+                      Appliquer
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        ))}
-      </div>
-
-      <div className="mt-4 flex justify-between text-sm">
-        <button className="text-blue-600 hover:underline">Mark all as read</button>
-        <button className="text-blue-600 hover:underline">Go to notification center</button>
+          <div className="bg-white rounded-xl shadow overflow-x-auto ml-52 max-w-[80%]">
+            <table className="min-w-full text-left text-gray-700 text-[16px]">
+              <thead className="bg-gray-100 text-sm uppercase">
+                <tr>
+                  <th className="px-6 py-3">
+                    <span className="inline-block align-middle">
+                      <ListOrdered className="w-4 h-4 inline-block mr-2 align-middle" />
+                      ID
+                    </span>
+                  </th>
+                  <th className="px-6 py-3">
+                    <span className="inline-block align-middle">
+                      <FileText className="w-4 h-4 inline-block mr-2 align-middle" />
+                      Titre
+                    </span>
+                  </th>
+                  <th className="px-6 py-3">
+                    <span className="inline-block align-middle">
+                      <Circle className="w-4 h-4 inline-block mr-2 align-middle" />
+                      Statut
+                    </span>
+                  </th>
+                  <th className="px-6 py-3">
+                    <span className="inline-block align-middle">
+                      <AlertTriangle className="w-4 h-4 inline-block mr-2 align-middle" />
+                      Priorité
+                    </span>
+                  </th>
+                  <th className="px-6 py-3">
+                    <span className="inline-block align-middle">
+                      <AlertTriangle className="w-4 h-4 inline-block mr-2 align-middle" />
+                      Gravité
+                    </span>
+                  </th>
+                  <th className="px-6 py-3">
+                    <span className="inline-block align-middle">
+                      <Cpu className="w-4 h-4 inline-block mr-2 align-middle" />
+                      Application
+                    </span>
+                  </th>
+                  <th className="px-6 py-3">
+                    <span className="inline-block align-middle">
+                      <User className="w-4 h-4 inline-block mr-2 align-middle" />
+                      Déclaré par
+                    </span>
+                  </th>
+                  <th className="px-6 py-3">
+                    <span className="inline-block align-middle">
+                      <CalendarDays className="w-4 h-4 inline-block mr-2 align-middle" />
+                      Date
+                    </span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedIncidents.map((incident) => (
+                  <tr
+                    key={incident.id.toString()}
+                    className="hover:bg-gray-50 cursor-pointer border-b"
+                    onClick={() => setSelectedIncident(incident)}
+                  >
+                    <td className="px-6 py-4 font-medium">{incident.id.toString()}</td>
+                    <td className="px-6 py-4">{incident.titre}</td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-sm font-medium ${getStatusStyle(
+                          incident.statutIncident
+                        )}`}
+                      >
+                        {statusLabels[incident.statutIncident] || incident.statutIncident}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-3 py-1 text-sm font-medium rounded-full ${getPriorityStyle(
+                          incident.priorite
+                        )}`}
+                      >
+                        {incident.priorite}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-3 py-1 text-sm font-medium rounded-full ${getGravityStyle(
+                          incident.gravite
+                        )}`}
+                      >
+                        {incident.gravite}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">{incident.application}</td>
+                    <td className="px-6 py-4">{incident.client_fullName}</td>
+                    <td className="px-6 py-4">{incident.dateDeclaration}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-between items-center mt-6 ml-8 max-w-[80%]">
+            <button
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={page === 1}
+              className={`flex items-center gap-2 px-4 py-2 border rounded ${
+                page === 1
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Précédent
+            </button>
+            <span className="text-gray-700">Page {page} sur {totalPages}</span>
+            <button
+              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={page === totalPages}
+              className={`flex items-center gap-2 px-4 py-2 border rounded ${
+                page === totalPages
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              Suivant
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+          {selectedIncident && (
+            <HistoriquePopup
+              incident={selectedIncident}
+              onClose={() => setSelectedIncident(null)}
+            />
+          )}
+        </main>
       </div>
     </div>
   );
-};
-
-export default NotificationPanel;
